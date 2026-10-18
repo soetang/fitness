@@ -31,7 +31,10 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
 - Do not use blanket `# noqa` suppressions. Rule-specific `# noqa: <rule>`
   directives are allowed. Enforce this through Ruff's native `PGH004` rule.
 - Disallow explicit and implicit `Any` using Pyrefly's configured checks.
-- Preserve unsettled design choices as open questions in the README.
+- Keep README.md focused on purpose, quick-start usage, and documentation links;
+  do not discuss implementation internals there. Put technical details in `docs/`,
+  including adapter behavior in `docs/adapters.md` and the technical reference
+  and open design questions in `docs/reference.md`.
 - Run `just check` after changes. It runs pytest with required 100% line and
   branch coverage, Fitness lint/check using the retained wheel, and formatting checks.
 - For self-checking this package, always use `just self-check` or `just check`.
@@ -90,5 +93,5 @@ Functions have no explicit IDs; identify them by their source definition file an
 line. Tool output contains no function references or titles. A failed test does
 not inherently equal one violation: integrations must report individual offenders.
 
-See `README.md` for the current YAML format, provisional execution contract, and
+See `docs/reference.md` for the current YAML format, provisional execution contract, and
 open prototype questions.
