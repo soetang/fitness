@@ -12,7 +12,7 @@ def create_app(runner: Runner = run_command) -> typer.Typer:
     app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 
     @app.command()
-    def lint(rules: Rules = Path("fitnessfunctions"), verbose: bool = False):
+    def lint(rules: Rules = Path("fitness"), verbose: bool = False):
         """Validate definitions and references offline."""
         try:
             suite = load(rules)
@@ -27,7 +27,7 @@ def create_app(runner: Runner = run_command) -> typer.Typer:
 
     @app.command()
     def check(
-        rules: Rules = Path("fitnessfunctions"),
+        rules: Rules = Path("fitness"),
         type_: Annotated[str | None, typer.Option("--type")] = None,
     ):
         """Run configured tools and compare findings with violation limits."""
