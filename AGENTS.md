@@ -39,9 +39,10 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
   do not discuss implementation internals there. Put technical details in `docs/`,
   including adapter behavior in `docs/adapters.md` and the technical reference
   and open design questions in `docs/reference.md`.
-- Run `just check` after changes. It runs pytest with required 100% line and
-  branch coverage, Fitness lint/check using the retained wheel, and formatting checks.
-- For self-checking this package, always use `just self-check` or `just check`.
+- Run `just check` after changes. It validates the working tree using tests,
+  fitness functions, and formatting checks. Fitness runs from the retained wheel,
+  not editable source. Tests require 100% line and branch coverage of `src/fitness`.
+- Use `just check` as the single entry point for validating this package.
   Never run the self-check CLI from the editable source tree or automatically
   rebuild/refresh its wheel during normal checks. Keep a retained runner snapshot.
   Use `just update-runner` explicitly to initialize or replace it after tests pass;

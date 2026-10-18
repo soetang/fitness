@@ -23,8 +23,9 @@ uv run pyrefly check
 
 ## Checking Fitness itself
 
-Run `just self-check` to execute the retained wheel in an isolated uv tool
-environment. Normal checks never rebuild or refresh it: a CLI change must not
+`just check` tests the current source, executes Fitness lint/check from the retained
+wheel in an isolated uv tool environment against the working tree, and checks
+formatting. Normal checks never rebuild or refresh the wheel: a CLI change must not
 silently replace the runner used to inspect that change. `just update-runner`
 explicitly runs tests, builds and refreshes the retained wheel. Use this to
 bootstrap a checkout or deliberately adopt a tested CLI version. `just build`
