@@ -1,15 +1,7 @@
 # Technical reference
 
-Project expectations live in [fitness/functions](../fitness/functions/), with
-integrations in [fitness/tool.yaml](../fitness/tool.yaml). Read those definitions
-for the current rules and guidance.
-
-## Checking Fitness itself
-
-Run `just setup`, then `just update-runner` once to initialize the non-editable
-CLI at `.fitness-runner/bin/fitness`. Run `just check` for validation. Normal checks
-reuse the installed snapshot; only `just update-runner` replaces it after tests
-pass. See the [justfile](../justfile) for individual commands.
+Fitness's configuration format, adapter protocol, and Python API. For work on
+Fitness itself, see [Contributing](contributing.md).
 
 ## Definitions
 
@@ -18,16 +10,16 @@ pass. See the [justfile](../justfile) for individual commands.
 
 ```yaml
 tools:
-  architecture:
-    command: [python, integrations/architecture.py]
+  links:
+    command: [python, integrations/links.py]
     send_input: true
 functions:
-  - title: Keep features independent
-    type: architecture
-    tool: architecture
-    rules: [private-import]
+  - title: Keep documentation links working
+    type: documentation
+    tool: links
+    rules: [broken-link]
     limit: 0
-    guidance: Communicate through public interfaces.
+    guidance: Update or remove broken links.
 ```
 
 Functions require `title` and `type`. Omit `tool` for manual expectations; omit
@@ -42,7 +34,7 @@ Commands have a 60-second timeout. With `send_input: false` (default), stdin is 
 With `send_input: true`, stdin receives JSON:
 
 ```json
-{"config": {}, "selections": [{"rules": ["private-import"], "config": {}}]}
+{"config": {}, "selections": [{"rules": ["broken-link"], "config": {}}]}
 ```
 
 Top-level config is invocation-wide; selections hold function settings. Omitted
@@ -57,10 +49,10 @@ partial results are discarded. Wrappers must normalize native tool exit codes.
 ```json
 [
   {
-    "tool": "architecture",
-    "rule_id": "private-import",
-    "tool_message": "Import the public interface instead.",
-    "filename": "src/orders/client.py",
+    "tool": "links",
+    "rule_id": "broken-link",
+    "tool_message": "Link target was not found.",
+    "filename": "docs/guide.md",
     "location": {"row": 12, "column": 5}
   }
 ]
@@ -74,30 +66,16 @@ CLI exit codes: **0** valid/passing, **1** violations, **2** configuration/execu
 error. Check prints only failures or `success`. No matching or automated functions
 also yields `success`; this does not imply manual expectations were evaluated.
 
-## Architecture and open questions
-
-### Python API
+## Python API
 
 `fitness.features.lint.contract.lint_fitness_functions(path)` loads and validates
 fitness functions offline, returning shared `FitnessFunctions` data including
 source locations and overlap warnings. The check contract exposes
 `check_fitness_functions(fitness_functions, execute_adapter=..., type_=...)`,
-returning `CheckResult` objects. Both APIs raise `FitnessError` for errors and
-leave presentation and exit codes to `fitness.cli`.
+returning `CheckResult` objects. Both APIs raise `FitnessError` for errors;
+neither prints output nor exits the process.
 
 `execute_adapter` accepts a command and optional JSON stdin and returns stdout;
 its default process transport is also available through the check contract.
 Tool remains the YAML command definition; adapter describes the executable
 integration capability. Shared domain models live in `fitness.contracts`.
-Feature-specific loading and process transport stay inside their features.
-
-The initial migration introduces the feature directories before activating the
-staged feature-boundary policy. Subsequent changes use the new directory ownership.
-
-The prototype still leaves these decisions open:
-
-- Generate native configuration versus reference existing tool configuration.
-- File-level defaults for type/tool.
-- Config merging, conflicting selections, and compatible adapter batching.
-- Whether shared rule-ID budgets are sufficient for independent expectations.
-- Richer completion/error reporting and partial failures.

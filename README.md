@@ -44,5 +44,5 @@ Potential features, pending further design discussion:
 - [Glossary](docs/glossary.md)
 - [Definitions and CLI behavior](docs/reference.md#definitions)
 - [Writing an adapter](docs/adapters.md)
-- [Development workflow and technical reference](docs/reference.md)
-- [Open prototype questions](docs/reference.md#architecture-and-open-questions)
+- [Technical reference](docs/reference.md)
+- [Contributing](docs/contributing.md)
