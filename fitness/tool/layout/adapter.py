@@ -25,7 +25,6 @@ class Settings(BaseModel):
 class TokenSettings(Settings):
     budget: int = Field(gt=0)
     encoding: str
-    associated_files: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class DependencySettings(Settings):
@@ -83,9 +82,7 @@ def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
             results.extend(feature_test_findings(root, imports))
         elif rule == "feature-token-budget":
             settings = TokenSettings.model_validate(config)
-            results.extend(
-                token_findings(root, settings.budget, settings.encoding, settings.associated_files)
-            )
+            results.extend(token_findings(root, settings.budget, settings.encoding))
         elif rule == "contract-only-feature-access":
             Settings.model_validate(config)
             results.extend(contract_findings(root, imports))

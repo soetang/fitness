@@ -11,7 +11,7 @@ from pydantic import JsonValue
 
 RunConfiguredAdapter = Callable[[Path, dict[str, JsonValue]], subprocess.CompletedProcess[str]]
 Findings = Callable[[Path], list[dict[str, str]]]
-TokenFindings = Callable[[Path, int, str, dict[str, list[str]]], list[dict[str, str]]]
+TokenFindings = Callable[[Path, int, str], list[dict[str, str]]]
 
 
 def architecture_results(
@@ -264,9 +264,7 @@ def test_combined_token_budget_and_deterministic_file_policy(
     included = [
         "src/fitness/features/orders/contract.py",
         "src/fitness/features/orders/execution.py",
-        "tests/features/orders/test_orders.py",
-        "docs/features/orders/design.md",
-        "tests/shared.txt",
+        "src/fitness/features/orders/nested/helpers.py",
     ]
     for name in included:
         write_file(name, text)
@@ -274,15 +272,20 @@ def test_combined_token_budget_and_deterministic_file_policy(
         "src/fitness/features/orders/.hidden.txt",
         "src/fitness/features/orders/__pycache__/cached.py",
         "src/fitness/features/orders/image.bin",
+        "src/fitness/contracts/shared.py",
+        "tests/features/orders/test_orders.py",
+        "docs/features/orders/design.md",
+        "tests/test_cli.py",
+        "tests/conftest.py",
+        "tests/fixtures/findings.json",
         "tests/unassociated.txt",
     ]:
         write_file(name, text * 100)
     # Fixed cl100k_base fixture: hello, ' world', CRLF, <, |, endo, ft, ext, |, >LF.
-    # Five included files, ten ordinary-text tokens each (including special-token text).
-    count = 50
-    associated_files = {"orders": ["tests/shared.txt", "tests/shared.txt"]}
-    assert token_findings(tmp_path, count, "cl100k_base", associated_files) == []
-    violations = token_findings(tmp_path, count - 1, "cl100k_base", associated_files)
+    # Three source files, ten ordinary-text tokens each (including special-token text).
+    count = 30
+    assert token_findings(tmp_path, count, "cl100k_base") == []
+    violations = token_findings(tmp_path, count - 1, "cl100k_base")
     assert len(violations) == 1
     assert f"{count} tokens" in violations[0]["tool_message"]
 
@@ -293,11 +296,7 @@ def test_combined_token_budget_and_deterministic_file_policy(
         ({"budget": 10, "encoding": "missing"}, "Unknown encoding missing"),
         (
             {"budget": 10, "encoding": "cl100k_base", "associated_files": {"missing": []}},
-            "Associated files reference an unknown feature",
-        ),
-        (
-            {"budget": 10, "encoding": "cl100k_base", "associated_files": {"orders": ["../*.py"]}},
-            "Feature file patterns must stay within the repository",
+            "extra_forbidden",
         ),
         ({"budget": 10, "encoding": "cl100k_base", "extra": True}, "extra_forbidden"),
     ],
@@ -437,8 +436,10 @@ def test_token_budget_does_not_follow_symlinks(
     write_file("src/fitness/features/orders/contract.py", "pass")
     external = write_file("external/large.txt", "hello world\n" * 1000)
     (tmp_path / "src/fitness/features/orders/linked.txt").symlink_to(external)
-    (tmp_path / "linked").symlink_to(external.parent, target_is_directory=True)
-    assert token_findings(tmp_path, 1, "cl100k_base", {"orders": ["linked/*.txt"]}) == []
+    (tmp_path / "src/fitness/features/orders/linked").symlink_to(
+        external.parent, target_is_directory=True
+    )
+    assert token_findings(tmp_path, 1, "cl100k_base") == []
 
 
 def test_invalid_python_is_an_evaluation_error(

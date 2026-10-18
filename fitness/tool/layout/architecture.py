@@ -97,9 +97,7 @@ def contract_findings(
     return results
 
 
-def token_findings(
-    root: Path, budget: int, encoding_name: str, associated_files: dict[str, list[str]]
-) -> list[dict[str, str]]:
+def token_findings(root: Path, budget: int, encoding_name: str) -> list[dict[str, str]]:
     encoding = tiktoken.get_encoding(encoding_name)
     features_root = root / "src/fitness/features"
     features = (
@@ -107,36 +105,21 @@ def token_findings(
         if (features_root.is_dir())
         else []
     )
-    feature_names = {path.name for path in features if not path.name.startswith("_")}
-    if set(associated_files) - feature_names:
-        raise ValueError("Associated files reference an unknown feature")
     results = []
     for feature in features:
-        if feature.name not in feature_names:
+        if feature.name.startswith(("_", ".")) or feature.is_symlink():
             continue
-        paths: set[Path] = set()
-        patterns = [
-            f"src/fitness/features/{feature.name}/**/*",
-            f"tests/features/{feature.name}/**/*",
-            f"docs/features/{feature.name}/**/*",
-            *associated_files.get(feature.name, []),
-        ]
-        for pattern in patterns:
-            if Path(pattern).is_absolute() or ".." in Path(pattern).parts:
-                raise ValueError("Feature file patterns must stay within the repository")
-            paths.update(
-                path
-                for path in root.glob(pattern)
-                if path.is_file()
-                and not any(
-                    parent.is_symlink() for parent in (path, *path.parents) if parent != root
-                )
-                and not any(
-                    part.startswith(".") or part == "__pycache__"
-                    for part in path.relative_to(root).parts
-                )
-                and path.suffix in {".py", ".md", ".yaml", ".yml", ".json", ".toml", ".txt"}
+        paths = (
+            path
+            for path in feature.rglob("*")
+            if path.is_file()
+            and not any(parent.is_symlink() for parent in (path, *path.parents) if parent != root)
+            and not any(
+                part.startswith(".") or part == "__pycache__"
+                for part in path.relative_to(root).parts
             )
+            and path.suffix in {".py", ".md", ".yaml", ".yml", ".json", ".toml", ".txt"}
+        )
         count = sum(
             len(encoding.encode(path.read_bytes().decode("utf-8"), disallowed_special=()))
             for path in sorted(paths)

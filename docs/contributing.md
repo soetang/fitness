@@ -23,15 +23,12 @@ native execution and JSON handling retain real subprocess tests. Fixtures are in
 
 The layout adapter uses the encoding specified in the
 [function configuration](../fitness/functions/architecture.yaml) and locked tiktoken
-version. Tiktoken may populate its encoding cache on first use. Each feature's
-combined count includes recursive files in `src/fitness/features/<name>/`,
-`tests/features/<name>/`, `docs/features/<name>/`, and its `associated_files` globs.
-Associations are evaluated independently for each feature; other shared files are
-not inferred.
+version. Tiktoken may populate its encoding cache on first use. Files are collected
+recursively from each `src/fitness/features/<name>/` directory.
 
 Eligible suffixes: `.py`, `.md`, `.yaml`, `.yml`, `.json`, `.toml`, `.txt`. Hidden
 paths, `__pycache__`, and symlinks are excluded; eligible untracked files count.
-Files are deduplicated per feature, sorted, decoded as strict UTF-8 without newline
+Files are sorted, decoded as strict UTF-8 without newline
 normalization, and encoded separately with special-token strings treated as text.
 Counts are summed without filename or separator overhead.
 
