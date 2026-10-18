@@ -1,14 +1,13 @@
 import json
 import subprocess
 from collections import Counter
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, cast
 
 import yaml
 from pydantic import TypeAdapter, ValidationError
 
-from fitness.models import Document, Finding, Function, Tool
+from fitness.models import Document, Finding, Function, Model, Tool
 
 
 class FitnessError(Exception):
@@ -28,14 +27,12 @@ class UniqueLoader(yaml.SafeLoader):
         return super().construct_mapping(node, deep=deep)
 
 
-@dataclass
-class Definition:
+class Definition(Model):
     function: Function
     source: str
 
 
-@dataclass
-class Suite:
+class Suite(Model):
     tools: dict[str, Tool]
     definitions: list[Definition]
     warnings: list[str]
@@ -65,7 +62,7 @@ def load(path: Path) -> Suite:
                     raise FitnessError(f"duplicate tool {name!r}")
                 tools[name] = tool
             definitions.extend(
-                Definition(function, f"{file}:{line}")
+                Definition(function=function, source=f"{file}:{line}")
                 for function, line in zip(document.functions, lines, strict=True)
             )
         except (OSError, ValueError, yaml.YAMLError, FitnessError) as error:
@@ -85,7 +82,7 @@ def load(path: Path) -> Suite:
         for (tool, rule), count in references.items()
         if count > 1
     ]
-    return Suite(tools, definitions, warnings)
+    return Suite(tools=tools, definitions=definitions, warnings=warnings)
 
 
 # Inject this boundary directly; the CLI uses the real process implementation.
@@ -110,8 +107,7 @@ def run_command(command: list[str], stdin: str | None) -> str:
     return result.stdout
 
 
-@dataclass
-class Result:
+class Result(Model):
     definition: Definition
     findings: list[Finding]
 
@@ -147,8 +143,8 @@ def evaluate(suite: Suite, runner: Runner, type_: str | None = None) -> list[Res
         findings.extend(batch)
     return [
         Result(
-            d,
-            [
+            definition=d,
+            findings=[
                 f
                 for f in findings
                 if f.tool == d.function.tool
