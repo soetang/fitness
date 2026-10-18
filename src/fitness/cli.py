@@ -3,8 +3,9 @@ from typing import Annotated
 
 import typer
 
-from fitness.contracts import FitnessError
+from fitness.contracts import Finding, FitnessError
 from fitness.features.check.contract import (
+    CheckResult,
     ExecuteAdapter,
     check_fitness_functions,
     execute_adapter_process,
@@ -12,6 +13,35 @@ from fitness.features.check.contract import (
 from fitness.features.lint.contract import lint_fitness_functions
 
 Rules = Annotated[Path, typer.Option("--rules", help="YAML file or directory of definitions.")]
+
+
+def format_finding(finding: Finding) -> str:
+    place = finding.filename or ""
+    if finding.location:
+        place += f":{finding.location.row}:{finding.location.column}"
+    prefix = f"{place} · " if place else ""
+    return f"\n{prefix}{finding.tool} / {finding.rule_id}\n{finding.tool_message}"
+
+
+def present_failed_fitness_function(result: CheckResult) -> None:
+    function = result.fitness_function.function
+    typer.echo(f"{result.status}  {function.title}\n{result.fitness_function.source}")
+    typer.echo(f"{len(result.findings)} violations · limit: {function.limit}")
+    if function.guidance:
+        typer.echo(f"\nGuidance:\n{function.guidance}")
+    for finding in result.findings:
+        typer.echo(format_finding(finding))
+    typer.echo()
+
+
+def present_fitness_check_results(results: list[CheckResult]) -> int:
+    failures = [result for result in results if result.status == "FAIL"]
+    if not failures:
+        typer.echo("success")
+        return 0
+    for result in failures:
+        present_failed_fitness_function(result)
+    return 1
 
 
 def create_app(execute_adapter: ExecuteAdapter = execute_adapter_process) -> typer.Typer:
@@ -42,24 +72,7 @@ def create_app(execute_adapter: ExecuteAdapter = execute_adapter_process) -> typ
         except FitnessError as error:
             typer.echo(f"ERROR  {error}", err=True)
             raise typer.Exit(2) from error
-        failures = [result for result in results if result.status == "FAIL"]
-        if not failures:
-            typer.echo("success")
-            raise typer.Exit(0)
-        for result in failures:
-            function = result.fitness_function.function
-            typer.echo(f"{result.status}  {function.title}\n{result.fitness_function.source}")
-            typer.echo(f"{len(result.findings)} violations · limit: {function.limit}")
-            if function.guidance:
-                typer.echo(f"\nGuidance:\n{function.guidance}")
-            for finding in result.findings:
-                place = finding.filename or ""
-                if finding.location:
-                    place += f":{finding.location.row}:{finding.location.column}"
-                prefix = f"{place} · " if place else ""
-                typer.echo(f"\n{prefix}{finding.tool} / {finding.rule_id}\n{finding.tool_message}")
-            typer.echo()
-        raise typer.Exit(1)
+        raise typer.Exit(present_fitness_check_results(results))
 
     return app
 
