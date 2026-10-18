@@ -34,7 +34,7 @@ functions:
   - title: Keep Python code free of lint diagnostics
     type: lint
     tool: ruff
-    rules: [E, F, I, UP, SIM]
+    rules: [E, F, I, UP, SIM, C4]
     config:
       pycodestyle:
         max-line-length: 100
