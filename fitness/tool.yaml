@@ -2,6 +2,9 @@ tools:
   ruff:
     command: [uv, run, --no-sync, python, fitness/tool/ruff/adapter.py]
     send_input: true
+    config:
+      line-length: 100
+      extend-exclude: [.fitness-runner]
   pyrefly:
     command: [uv, run, --no-sync, python, fitness/tool/pyrefly/adapter.py]
     send_input: true

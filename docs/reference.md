@@ -7,34 +7,42 @@ See the [README](../README.md) for a quick start and the
 
 Shared example definitions, findings, and an executable integration live in
 `tests/fixtures/`.
-`just setup`, `just test`, `just lint`, `just typecheck`, and `just fmt` support development.
+`just setup`, `just test`, `just lint`, `just fitness`, `just typecheck`, and
+`just fmt` support development.
 Initialize the retained runner once with `just update-runner` before `just check`.
-`just check` runs pytest, uses the retained wheel against this package's `fitness/`,
-then checks formatting. Tests enforce **100% line and branch
+`just check` is the recipe list `test lint fitness`: tests, definition linting
+and formatting checks, then fitness evaluation. Tests enforce **100% line and branch
 coverage** of `src/fitness`; missing coverage fails the run. Without just, run:
 
 ```sh
 uv run pytest
-uvx --from ./dist/self-check/fitness-0.1.0-py3-none-any.whl fitness lint
-uvx --from ./dist/self-check/fitness-0.1.0-py3-none-any.whl fitness check
-uv run ruff format --check .
-uv run pyrefly check
+.fitness-runner/bin/fitness lint --verbose
+uv run ruff format --config "$(uv run python fitness/tool/ruff/format_config.py)" --check .
+.fitness-runner/bin/fitness check
 ```
 
 ## Checking Fitness itself
 
-`just check` tests the current source, executes Fitness lint/check from the retained
-wheel in an isolated uv tool environment against the working tree, and checks
-formatting. Normal checks never rebuild or refresh the wheel: a CLI change must not
-silently replace the runner used to inspect that change. `just update-runner`
-explicitly runs tests, builds and refreshes the retained wheel. Use this to
-bootstrap a checkout or deliberately adopt a tested CLI version. `just build`
-builds a separate candidate in `dist/` without replacing the retained runner.
+`just lint` validates definitions and formatting. `just fitness` evaluates the
+working tree. Both Fitness commands use `.fitness-runner/bin/fitness`, a retained
+non-editable installation in a dedicated environment. `just check` runs
+`test lint fitness` in order.
+
+Normal checks never rebuild this installation: a CLI change must not silently
+replace the runner used to inspect that change. `just update-runner` explicitly
+runs tests, creates the environment, and uses `uv pip install` to build and install
+a fresh wheel from the local project. It does not use editable installation.
+The executable path stays the same when the package version changes, so recipes
+do not need versioned wheel filenames. The path is defined once in the justfile.
+Use this command to bootstrap a checkout or deliberately adopt a tested CLI
+version. `just build` builds a separate candidate in `dist/` without replacing
+the retained runner.
 
 `fitness/functions/` defines zero-limit lint, typing, and layout expectations.
 Tool registrations live in `fitness/tool.yaml`. `fitness/tool/ruff/adapter.py`
-and `fitness/tool/pyrefly/adapter.py` run the development tools using existing
-`pyproject.toml` configuration. Run recipes from the project root after `just setup`.
+and `fitness/tool/pyrefly/adapter.py` run the development tools. Ruff configuration
+lives in the fitness YAML; Pyrefly uses `pyproject.toml`. Run recipes from the
+project root after `just setup`.
 Each adapter lives in `fitness/tool/<name>/adapter.py`, with its own `test_*.py` files.
 Shared fixtures live in `fitness/tool/conftest.py`. Pytest collects these with importlib
 mode so repeated test filenames work. Layout fitness functions flag adapters
@@ -57,17 +65,26 @@ are omitted and no explicit selector matches, the adapter reports the native ID.
 The core always matches reported IDs exactly; there is no matching-mode field.
 Lint warns about identical references and all-diagnostic functions, without
 interpreting tool-specific selectors.
-`just fmt` reads the package's Ruff rule IDs from that same YAML for automatic
-lint fixes, then runs Ruff's formatter.
+`just fmt` runs only Ruff's formatter. Formatting commands render their native
+controls from `fitness/tool.yaml` through `fitness/tool/ruff/format_config.py`.
+Ruff lint evaluation runs only through the adapter, not directly in the justfile.
 Their adapters receive selections over JSON stdin. Explicit IDs select native
 checks; omitted `rules` uses configured checks and counts all returned diagnostics.
 When combined, configured checks are extended with explicit selections. Native
-configuration defaults remain in `pyproject.toml`. Ruff applies tool config as
+Ruff configuration belongs in the fitness YAML, not `pyproject.toml`. Ruff applies tool config as
 native top-level overrides and function config under `lint`, using TOML key/value
 CLI arguments. Conflicting settings across selections fail explicitly; compatible
 settings are combined in one invocation. Pyrefly still rejects nonempty request
 config rather than silently ignoring it. Native exit 1 with diagnostics becomes
 successful adapter output; command failures remain errors.
+
+Invocation and formatting controls, including the formatter's line length and
+excluding the runner environment, live in `fitness/tool.yaml`. Checks and their
+rule-specific settings live in `fitness/functions/`; for example, E501's maximum
+line length is a function setting independent of the formatter's line length.
+The meta functions reject any `[tool.ruff]` configuration in `pyproject.toml`,
+and the architecture functions reject direct `ruff check` commands in justfile
+recipe bodies. Consult those definitions for their current guidance.
 
 Ruff's `PGH004` prohibits blanket noqa directives; rule-specific suppressions are
 allowed. Pyrefly enables both `explicit-any` and `implicit-any` checks, including
