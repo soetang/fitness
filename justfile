@@ -33,10 +33,9 @@ build:
     uv build --wheel
 
 # uv installs a built, non-editable snapshot in a dedicated environment.
-update-runner: test
-    uv venv --allow-existing "{{runner_dir}}"
-    uv pip install --python "{{runner_dir}}/bin/python" --reinstall-package fitness .
-    "{{fitness_cli}}" --help
+update-runner:
+    @{{quiet}} just test ::: uv venv --allow-existing "{{runner_dir}}" ::: uv pip install --python "{{runner_dir}}/bin/python" --reinstall-package fitness . > /dev/null
+    @"{{fitness_cli}}" --help
 
 # Normal checks reuse this installation without rebuilding it.
 _runner-ready:
