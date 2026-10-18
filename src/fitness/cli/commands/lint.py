@@ -15,10 +15,10 @@ def register(app: typer.Typer) -> None:
     Args:
         app: Command-line application receiving the lint command.
     """
-    app.command(help="Validate definitions and references offline.")(lint)
+    app.command("lint", help="Validate definitions and references offline.")(_lint)
 
 
-def lint(rules: Rules = Path("fitness"), verbose: bool = False):
+def _lint(rules: Rules = Path("fitness"), verbose: bool = False):
     """Validate definitions and references offline.
 
     Args:

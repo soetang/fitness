@@ -30,10 +30,10 @@ def register(app: typer.Typer, execute_adapter: ExecuteAdapter) -> None:
         except FitnessError as error:
             typer.echo(f"ERROR  {error}", err=True)
             raise typer.Exit(2) from error
-        raise typer.Exit(present_fitness_check_results(results))
+        raise typer.Exit(_present_fitness_check_results(results))
 
 
-def format_finding(finding: Finding) -> str:
+def _format_finding(finding: Finding) -> str:
     """Format an adapter diagnostic with its optional source location.
 
     Args:
@@ -46,7 +46,7 @@ def format_finding(finding: Finding) -> str:
     return f"\n{prefix}{finding.tool} / {finding.rule_id}\n{finding.tool_message}"
 
 
-def present_failed_fitness_function(result: CheckResult) -> None:
+def _present_failed_fitness_function(result: CheckResult) -> None:
     """Print a failed function's limit, guidance, and individual findings.
 
     Args:
@@ -58,11 +58,11 @@ def present_failed_fitness_function(result: CheckResult) -> None:
     if function.guidance:
         typer.echo(f"\nGuidance:\n{function.guidance}")
     for finding in result.findings:
-        typer.echo(format_finding(finding))
+        typer.echo(_format_finding(finding))
     typer.echo()
 
 
-def present_fitness_check_results(results: list[CheckResult]) -> int:
+def _present_fitness_check_results(results: list[CheckResult]) -> int:
     """Print failures or a success summary and return the corresponding exit code.
 
     Args:
@@ -73,5 +73,5 @@ def present_fitness_check_results(results: list[CheckResult]) -> int:
         typer.echo("success")
         return 0
     for result in failures:
-        present_failed_fitness_function(result)
+        _present_failed_fitness_function(result)
     return 1

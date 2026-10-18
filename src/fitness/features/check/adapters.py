@@ -10,7 +10,7 @@ from fitness.contracts import Finding, FitnessError, FitnessFunction, Function, 
 ExecuteAdapter = Callable[[list[str], str | None], str]
 
 
-def encode_request(tool: Tool, functions: list[Function]) -> str | None:
+def _encode_request(tool: Tool, functions: list[Function]) -> str | None:
     """Encode selected rules and configuration when the tool accepts input.
 
     Args:
@@ -27,7 +27,7 @@ def encode_request(tool: Tool, functions: list[Function]) -> str | None:
     )
 
 
-def run_selected_tool(
+def _run_selected_tool(
     name: str, tool: Tool, functions: list[Function], execute_adapter: ExecuteAdapter
 ) -> list[Finding]:
     """Execute one tool and reject malformed or incorrectly attributed findings.
@@ -42,7 +42,7 @@ def run_selected_tool(
         FitnessError: Execution or validation fails, with the tool identified.
     """
     try:
-        output = execute_adapter(tool.command, encode_request(tool, functions))
+        output = execute_adapter(tool.command, _encode_request(tool, functions))
         findings = TypeAdapter(list[Finding]).validate_json(output)
         if any(f.tool != name for f in findings):
             raise FitnessError("finding tool does not match the invoked tool")
@@ -65,5 +65,5 @@ def collect_findings(
     for name, tool in tools.items():
         functions = [f.function for f in selected if f.function.tool == name]
         if functions:
-            findings.extend(run_selected_tool(name, tool, functions, execute_adapter))
+            findings.extend(_run_selected_tool(name, tool, functions, execute_adapter))
     return findings
