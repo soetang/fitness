@@ -116,11 +116,16 @@ def test_check_presentation(definitions_path: Path, findings_json: str):
     assert "FAIL  Use supported APIs" in result.output
     assert "Guidance:" in result.output
     assert "src/orders/client.py:12:5" in result.output
-    assert "NOT AUTOMATED" in result.output
+    assert "NOT AUTOMATED" not in result.output
+    assert "PASS" not in result.output
+    assert "Keep API migration within budget" not in result.output
+    assert "Keep features independent" not in result.output
+    assert "success" not in result.output
     passed = CliRunner().invoke(
         app, ["check", "--rules", str(definitions_path), "--type", "migration"]
     )
     assert passed.exit_code == 0
+    assert passed.output == "success\n"
 
 
 def test_execution_error_exit(definitions_path: Path):
@@ -184,7 +189,7 @@ def test_no_matching_functions_skips_tools(definitions_path: Path):
         ["check", "--rules", str(definitions_path), "--type", "unknown"],
     )
     assert result.exit_code == 0
-    assert result.output == "No matching fitness functions\n"
+    assert result.output == "success\n"
 
 
 def test_findings_without_optional_location(definitions_path: Path):
@@ -197,6 +202,32 @@ def test_findings_without_optional_location(definitions_path: Path):
     assert result.exit_code == 1
     assert "example / API001\nUse public APIs." in result.output
     assert "None" not in result.output
+
+
+def test_failure_without_guidance(write_definitions: Callable[[str], Path], findings_json: str):
+    path = write_definitions("""
+tools:
+  example: {command: [example]}
+functions:
+  - {title: No violations, type: test, tool: example, rules: [API001]}
+""")
+    result = CliRunner().invoke(
+        create_app(lambda command, stdin: findings_json), ["check", "--rules", str(path)]
+    )
+    assert result.exit_code == 1
+    assert "FAIL  No violations" in result.output
+    assert "Guidance:" not in result.output
+
+
+def test_nonautomated_functions_are_silent(write_definitions: Callable[[str], Path]):
+    path = write_definitions("functions: [{title: Review manually, type: architecture}]")
+
+    def forbidden_runner(command: list[str], stdin: str | None):
+        pytest.fail("nonautomated functions must not execute tools")
+
+    result = CliRunner().invoke(create_app(forbidden_runner), ["check", "--rules", str(path)])
+    assert result.exit_code == 0
+    assert result.output == "success\n"
 
 
 def test_omitted_rules_count_all_and_warn_on_overlap(

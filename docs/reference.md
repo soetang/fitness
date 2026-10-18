@@ -128,7 +128,7 @@ functions:
 ```
 
 A fitness function requires a title and one user-defined type. Omit `tool` for
-nonautomated expectations; these are reported as **NOT AUTOMATED**, never passed.
+nonautomated expectations; these are not evaluated or classified as passed.
 Automated functions may omit `rules` to count all findings from that tool's
 configured checks. An explicit list must contain at least one rule ID or selector.
 `limit` defaults to zero and is a shared
@@ -181,7 +181,11 @@ pass means count <= limit. Multiple offenders must be emitted as individual
 findings; a failed pytest test is not inherently one violation.
 
 CLI exit codes: **0** valid/passing, **1** violations, **2** configuration/execution
-error. No matching functions is a successful check with an explicit message.
+error. `fitness check` prints only `success` when there are no failures, including
+when no functions match or all selected functions are nonautomated. Otherwise it
+prints only failing functions and their findings, or the evaluation error.
+Passing and nonautomated functions are silent; `success` means no evaluated
+function failed, not that manual expectations were evaluated.
 
 ## Architecture and open questions
 

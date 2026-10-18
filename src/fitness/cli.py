@@ -36,13 +36,14 @@ def create_app(runner: Runner = run_command) -> typer.Typer:
         except FitnessError as error:
             typer.echo(f"ERROR  {error}", err=True)
             raise typer.Exit(2) from error
-        if not results:
-            typer.echo("No matching fitness functions")
-        for result in results:
+        failures = [result for result in results if result.status == "FAIL"]
+        if not failures:
+            typer.echo("success")
+            raise typer.Exit(0)
+        for result in failures:
             function = result.definition.function
             typer.echo(f"{result.status}  {function.title}\n{result.definition.source}")
-            if function.tool:
-                typer.echo(f"{len(result.findings)} violations · limit: {function.limit}")
+            typer.echo(f"{len(result.findings)} violations · limit: {function.limit}")
             if function.guidance:
                 typer.echo(f"\nGuidance:\n{function.guidance}")
             for finding in result.findings:
@@ -52,7 +53,7 @@ def create_app(runner: Runner = run_command) -> typer.Typer:
                 prefix = f"{place} · " if place else ""
                 typer.echo(f"\n{prefix}{finding.tool} / {finding.rule_id}\n{finding.tool_message}")
             typer.echo()
-        raise typer.Exit(1 if any(r.status == "FAIL" for r in results) else 0)
+        raise typer.Exit(1)
 
     return app
 
