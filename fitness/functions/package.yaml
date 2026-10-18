@@ -1,5 +1,18 @@
 description: Python code quality, typing, and source/test maintainability.
 functions:
+  - title: Document public source elements with Google-style docstrings
+    type: maintainability
+    tool: ruff
+    rules: [D, D417]
+    config:
+      pydocstyle:
+        convention: google
+      per-file-ignores:
+        "!src/**": [D]
+    guidance: >-
+      Add Google-style docstrings to public source modules, packages, classes,
+      functions, and methods. Document each argument in an Args section, except
+      implicit self and cls parameters.
   - title: Keep function cyclomatic complexity within the limit
     type: maintainability
     tool: ruff
