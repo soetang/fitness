@@ -2,7 +2,6 @@ import importlib.util
 import json
 import subprocess
 import sys
-from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -29,19 +28,12 @@ def adapter_module(request: pytest.FixtureRequest):
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    with adapter_import_path(directory):
-        spec.loader.exec_module(module)
-    return module
-
-
-@contextmanager
-def adapter_import_path(directory: Path):
-    """Make adapter-local imports available only while loading its module."""
     sys.path.insert(0, str(directory))
     try:
-        yield
+        spec.loader.exec_module(module)
     finally:
         sys.path.pop(0)
+    return module
 
 
 @pytest.fixture

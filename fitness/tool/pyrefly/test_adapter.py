@@ -9,8 +9,9 @@ RunAdapter = Callable[[str | Path], CompletedProcess[str]]
 RunSelected = Callable[[Path, list[str] | None], CompletedProcess[str]]
 
 
-def test_reports_offender(write_file: Callable[[str, str], Path], run_adapter: RunAdapter):
-    path = write_file("bad.py", 'value: int = "wrong"\n')
+def test_reports_offender(tmp_path: Path, run_adapter: RunAdapter):
+    path = tmp_path / "bad.py"
+    path.write_text('value: int = "wrong"\n')
     result = run_adapter(path)
     assert result.returncode == 0, result.stderr
     findings = json.loads(result.stdout)

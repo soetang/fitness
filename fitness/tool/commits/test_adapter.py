@@ -26,23 +26,6 @@ def stage(root: Path, paths: list[str]) -> None:
         git(root, "add", "--", name)
 
 
-@pytest.fixture
-def committed_feature(repository: Path) -> tuple[Path, str]:
-    original = "src/fitness/features/orders/contract.py"
-    stage(repository, [original])
-    git(
-        repository,
-        "-c",
-        "user.name=Test",
-        "-c",
-        "user.email=test@example.com",
-        "commit",
-        "-m",
-        "Initial feature",
-    )
-    return repository, original
-
-
 @pytest.mark.parametrize(
     "paths",
     [
@@ -115,22 +98,29 @@ def test_rejects_multiple_staged_features(repository: Path, run_adapter: RunAdap
     assert violations[0]["rule_id"] == "one-feature-per-commit"
 
 
-def test_cross_feature_renames(committed_feature: tuple[Path, str], run_adapter: RunAdapter):
-    repository, original = committed_feature
-    target = "src/fitness/features/client/contract.py"
-    (repository / target).parent.mkdir(parents=True)
-    git(repository, "mv", original, target)
-    result = run_adapter(repository)
-    assert result.returncode == 0, result.stderr
-    assert [f["rule_id"] for f in json.loads(result.stdout)] == ["one-feature-per-commit"]
-
-
-def test_deletion_and_replacement_in_another_feature(
-    committed_feature: tuple[Path, str], run_adapter: RunAdapter
+@pytest.mark.parametrize("rename", [False, True])
+def test_deletions_and_cross_feature_renames(
+    repository: Path, run_adapter: RunAdapter, rename: bool
 ):
-    repository, original = committed_feature
-    git(repository, "rm", original)
-    stage(repository, ["src/fitness/features/client/contract.py"])
+    original = "src/fitness/features/orders/contract.py"
+    stage(repository, [original])
+    git(
+        repository,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.com",
+        "commit",
+        "-m",
+        "Initial feature",
+    )
+    target = "src/fitness/features/client/contract.py"
+    if rename:
+        (repository / target).parent.mkdir(parents=True)
+        git(repository, "mv", original, target)
+    else:
+        git(repository, "rm", original)
+        stage(repository, [target])
     result = run_adapter(repository)
     assert result.returncode == 0, result.stderr
     assert [f["rule_id"] for f in json.loads(result.stdout)] == ["one-feature-per-commit"]
@@ -144,10 +134,19 @@ def test_unstaged_second_feature_is_ignored(repository: Path, run_adapter: RunAd
     assert json.loads(run_adapter(repository).stdout) == []
 
 
-def test_same_feature_rename_is_allowed(
-    committed_feature: tuple[Path, str], run_adapter: RunAdapter
-):
-    repository, original = committed_feature
+def test_same_feature_rename_is_allowed(repository: Path, run_adapter: RunAdapter):
+    original = "src/fitness/features/orders/old.py"
+    stage(repository, [original])
+    git(
+        repository,
+        "-c",
+        "user.name=Test",
+        "-c",
+        "user.email=test@example.com",
+        "commit",
+        "-m",
+        "Initial feature",
+    )
     git(repository, "mv", original, "src/fitness/features/orders/new.py")
     assert json.loads(run_adapter(repository).stdout) == []
 
