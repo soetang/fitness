@@ -3,19 +3,25 @@ from typing import Annotated
 
 import typer
 
-from fitness.core import FitnessError, Runner, evaluate, load, run_command
+from fitness.contracts import FitnessError
+from fitness.features.check.contract import (
+    ExecuteAdapter,
+    check_fitness_functions,
+    execute_adapter_process,
+)
+from fitness.features.lint.contract import lint_fitness_functions
 
 Rules = Annotated[Path, typer.Option("--rules", help="YAML file or directory of definitions.")]
 
 
-def create_app(runner: Runner = run_command) -> typer.Typer:
+def create_app(execute_adapter: ExecuteAdapter = execute_adapter_process) -> typer.Typer:
     app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 
     @app.command()
     def lint(rules: Rules = Path("fitness"), verbose: bool = False):
         """Validate definitions and references offline."""
         try:
-            suite = load(rules)
+            suite = lint_fitness_functions(rules)
         except FitnessError as error:
             typer.echo(f"ERROR  {error}", err=True)
             raise typer.Exit(2) from error
@@ -23,7 +29,7 @@ def create_app(runner: Runner = run_command) -> typer.Typer:
             typer.echo(f"WARNING  {warning}")
         typer.echo("Valid fitness definitions")
         if verbose:
-            typer.echo(f"{len(suite.definitions)} functions · {len(suite.tools)} tools")
+            typer.echo(f"{len(suite.fitness_functions)} functions · {len(suite.tools)} tools")
 
     @app.command()
     def check(
@@ -32,7 +38,7 @@ def create_app(runner: Runner = run_command) -> typer.Typer:
     ):
         """Run configured tools and compare findings with violation limits."""
         try:
-            results = evaluate(load(rules), runner, type_)
+            results = check_fitness_functions(lint_fitness_functions(rules), execute_adapter, type_)
         except FitnessError as error:
             typer.echo(f"ERROR  {error}", err=True)
             raise typer.Exit(2) from error
@@ -41,8 +47,8 @@ def create_app(runner: Runner = run_command) -> typer.Typer:
             typer.echo("success")
             raise typer.Exit(0)
         for result in failures:
-            function = result.definition.function
-            typer.echo(f"{result.status}  {function.title}\n{result.definition.source}")
+            function = result.fitness_function.function
+            typer.echo(f"{result.status}  {function.title}\n{result.fitness_function.source}")
             typer.echo(f"{len(result.findings)} violations · limit: {function.limit}")
             if function.guidance:
                 typer.echo(f"\nGuidance:\n{function.guidance}")

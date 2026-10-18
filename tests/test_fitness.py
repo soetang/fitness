@@ -7,7 +7,11 @@ import pytest
 from typer.testing import CliRunner
 
 from fitness.cli import create_app
-from fitness.core import FitnessError, Suite, evaluate, load, run_command
+from fitness.contracts import FitnessError
+from fitness.contracts import FitnessFunctions as Suite
+from fitness.features.check.contract import check_fitness_functions as evaluate
+from fitness.features.check.contract import execute_adapter_process as run_command
+from fitness.features.lint.contract import lint_fitness_functions as load
 
 
 def test_shared_counts_limits_and_source(suite: Suite, findings_json: str):
@@ -21,7 +25,7 @@ def test_shared_counts_limits_and_source(suite: Suite, findings_json: str):
     results = evaluate(suite, runner)
     assert [r.status for r in results] == ["FAIL", "PASS", "NOT AUTOMATED"]
     assert [len(r.findings) for r in results] == [1, 1, 0]
-    assert results[0].definition.source.endswith("apis.yaml:2")
+    assert results[0].fitness_function.source.endswith("apis.yaml:2")
     assert len(requests) == 1
     assert requests[0][1] == {
         "config": {"preview": True},

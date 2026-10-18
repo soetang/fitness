@@ -76,6 +76,24 @@ also yields `success`; this does not imply manual expectations were evaluated.
 
 ## Architecture and open questions
 
+### Python API
+
+`fitness.features.lint.contract.lint_fitness_functions(path)` loads and validates
+fitness functions offline, returning shared `FitnessFunctions` data including
+source locations and overlap warnings. The check contract exposes
+`check_fitness_functions(fitness_functions, execute_adapter=..., type_=...)`,
+returning `CheckResult` objects. Both APIs raise `FitnessError` for errors and
+leave presentation and exit codes to `fitness.cli`.
+
+`execute_adapter` accepts a command and optional JSON stdin and returns stdout;
+its default process transport is also available through the check contract.
+Tool remains the YAML command definition; adapter describes the executable
+integration capability. Shared domain models live in `fitness.contracts`.
+Feature-specific loading and process transport stay inside their features.
+
+The initial migration introduces the feature directories before activating the
+staged feature-boundary policy. Subsequent changes use the new directory ownership.
+
 The prototype still leaves these decisions open:
 
 - Generate native configuration versus reference existing tool configuration.

@@ -51,3 +51,18 @@ class Finding(Model):
     tool_message: Text
     filename: Text | None = None
     location: Location | None = None
+
+
+class FitnessError(Exception):
+    pass
+
+
+class FitnessFunction(Model):
+    function: Function
+    source: str
+
+
+class FitnessFunctions(Model):
+    tools: dict[str, Tool]
+    fitness_functions: list[FitnessFunction]
+    warnings: list[str]

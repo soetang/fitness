@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from fitness.core import load
+from fitness.features.lint.contract import lint_fitness_functions
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -14,7 +14,7 @@ def definitions_path():
 
 @pytest.fixture
 def suite(definitions_path: Path):
-    return load(definitions_path)
+    return lint_fitness_functions(definitions_path)
 
 
 @pytest.fixture
