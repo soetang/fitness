@@ -8,6 +8,17 @@ import pytest
 from pydantic import JsonValue
 
 
+@pytest.fixture
+def write_file(tmp_path: Path):
+    def write(name: str, text: str = "") -> Path:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    return write
+
+
 @pytest.fixture(scope="module")
 def adapter_module(request: pytest.FixtureRequest):
     """Load the real adapter API for tests that do not need a process boundary."""

@@ -7,7 +7,13 @@ import tomllib
 from pathlib import Path
 
 import yaml
-from architecture import contract_findings, dependency_findings, token_findings
+from architecture import (
+    contract_findings,
+    dependency_findings,
+    feature_test_findings,
+    file_length_findings,
+    token_findings,
+)
 from imports import scan_imports
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -24,6 +30,10 @@ class TokenSettings(Settings):
 
 class DependencySettings(Settings):
     module_mapping: dict[str, list[str]]
+
+
+class FileLengthSettings(Settings):
+    max_lines: int = Field(gt=0)
 
 
 class Selection(Settings):
@@ -48,12 +58,30 @@ def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
                 raise ValueError(f"Conflicting configuration for {rule}")
             configurations[rule] = selection.config
     imports = (
-        scan_imports(root, source_only="contract-only-feature-access" not in configurations)
-        if configurations.keys() & {"contract-only-feature-access", "dependency-placement"}
+        scan_imports(
+            root,
+            source_only=not configurations.keys()
+            & {
+                "contract-only-feature-access",
+                "feature-test-location",
+            },
+        )
+        if configurations.keys()
+        & {
+            "contract-only-feature-access",
+            "dependency-placement",
+            "feature-test-location",
+        }
         else {}
     )
     for rule, config in configurations.items():
-        if rule == "feature-token-budget":
+        if rule == "source-test-file-length":
+            file_settings = FileLengthSettings.model_validate(config)
+            results.extend(file_length_findings(root, file_settings.max_lines))
+        elif rule == "feature-test-location":
+            Settings.model_validate(config)
+            results.extend(feature_test_findings(root, imports))
+        elif rule == "feature-token-budget":
             settings = TokenSettings.model_validate(config)
             results.extend(
                 token_findings(root, settings.budget, settings.encoding, settings.associated_files)

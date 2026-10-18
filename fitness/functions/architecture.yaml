@@ -1,4 +1,9 @@
 functions:
+  - title: Keep feature tests with their corresponding feature
+    type: architecture
+    tool: layout
+    rules: [feature-test-location]
+    guidance: Put tests that use a feature contract in tests/features/<feature_name>/.
   - title: Keep each feature within one combined token budget
     type: architecture
     tool: layout
@@ -7,8 +12,8 @@ functions:
       budget: 15000
       encoding: cl100k_base
       associated_files:
-        lint: [tests/test_fitness.py, tests/conftest.py, "tests/fixtures/**/*"]
-        check: [tests/test_fitness.py, tests/conftest.py, "tests/fixtures/**/*"]
+        lint: [tests/test_cli.py, tests/conftest.py, "tests/fixtures/**/*"]
+        check: [tests/test_cli.py, tests/conftest.py, "tests/fixtures/**/*"]
     guidance: Consider breaking into multiple cohesive features.
   - title: Access features only through their public contracts
     type: architecture

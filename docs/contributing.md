@@ -35,6 +35,10 @@ Files are deduplicated per feature, sorted, decoded as strict UTF-8 without newl
 normalization, and encoded separately with special-token strings treated as text.
 Counts are summed without filename or separator overhead.
 
+Line counting includes blank lines and comments; a final newline does not create
+an additional line. Feature-test attribution uses the shared import inventory;
+fixture modules such as `conftest.py` are not treated as test modules.
+
 ### Import analysis
 
 The layout adapter invokes `semgrep-core` once, sharing its import inventory between

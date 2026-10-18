@@ -3,12 +3,57 @@
 from pathlib import Path
 
 import tiktoken
+from imports import python_files
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
 
 def report(rule: str, message: str, filename: str) -> dict[str, str]:
     return {"tool": "layout", "rule_id": rule, "tool_message": message, "filename": filename}
+
+
+def file_length_findings(root: Path, max_lines: int) -> list[dict[str, str]]:
+    results = []
+    for directory in (root / "src", root / "tests"):
+        for path in python_files(directory):
+            count = len(path.read_text(encoding="utf-8").splitlines())
+            if count > max_lines:
+                results.append(
+                    report(
+                        "source-test-file-length",
+                        f"{count} lines exceeds {max_lines}.",
+                        path.relative_to(root).as_posix(),
+                    )
+                )
+    return results
+
+
+def feature_test_findings(
+    root: Path,
+    imports: dict[Path, list[tuple[str, int]]],
+) -> list[dict[str, str]]:
+    results = []
+    for path, references in imports.items():
+        if not path.is_relative_to(root / "tests") or not (
+            path.name.startswith("test_") or path.name.endswith("_test.py")
+        ):
+            continue
+        features = {
+            name.split(".")[2]
+            for name, _ in references
+            if name.startswith("fitness.features.") and len(name.split(".")) > 2
+        }
+        for feature in sorted(features):
+            expected = root / "tests/features" / feature
+            if not path.is_relative_to(expected):
+                results.append(
+                    report(
+                        "feature-test-location",
+                        f"Tests of {feature} belong in tests/features/{feature}/.",
+                        path.relative_to(root).as_posix(),
+                    )
+                )
+    return results
 
 
 def contract_findings(

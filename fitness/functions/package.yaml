@@ -1,4 +1,11 @@
 functions:
+  - title: Keep source and test Python files within the line limit
+    type: maintainability
+    tool: layout
+    rules: [source-test-file-length]
+    config:
+      max_lines: 400
+    guidance: Modularize files into smaller cohesive modules.
   - title: Keep Python code free of lint diagnostics
     type: lint
     tool: ruff

@@ -14,17 +14,6 @@ Findings = Callable[[Path], list[dict[str, str]]]
 TokenFindings = Callable[[Path, int, str, dict[str, list[str]]], list[dict[str, str]]]
 
 
-@pytest.fixture
-def write_file(tmp_path: Path):
-    def write(name: str, text: str = "") -> Path:
-        path = tmp_path / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-        return path
-
-    return write
-
-
 def architecture_results(
     root: Path, rule: str, config: dict[str, JsonValue] | None = None
 ) -> subprocess.CompletedProcess[str]:
