@@ -4,12 +4,32 @@ import json
 import subprocess
 import sys
 
+from pydantic import JsonValue
+
+
+def overrides(config: dict[str, JsonValue], prefix: tuple[str, ...] = ()) -> dict[str, str]:
+    """Encode native settings as Ruff's TOML key/value command-line overrides."""
+    result: dict[str, str] = {}
+    for key, value in config.items():
+        path = (*prefix, key)
+        if isinstance(value, dict):
+            result.update(overrides(value, path))
+        else:
+            result[".".join(json.dumps(part) for part in path)] = json.dumps(value)
+    return result
+
 
 def main() -> None:
     request = json.load(sys.stdin)
     selections = request["selections"]
-    if request["config"] or any(item["config"] for item in selections):
-        raise ValueError("Ruff config mapping is not supported; use pyproject.toml")
+    settings = overrides(request["config"])
+    for item in selections:
+        for key, value in overrides(item["config"], ("lint",)).items():
+            if key in settings and settings[key] != value:
+                raise ValueError(
+                    f"Conflicting Ruff settings for {key}; split incompatible selections"
+                )
+            settings[key] = value
     rules = sorted({rule for item in selections for rule in item["rules"] or []})
     flags: list[str] = []
     if rules:
@@ -17,6 +37,8 @@ def main() -> None:
             "--extend-select" if any(item["rules"] is None for item in selections) else "--select"
         )
         flags = [flag, ",".join(rules)]
+    if settings:
+        flags.extend(["--config", "\n".join(f"{key} = {value}" for key, value in settings.items())])
     result = subprocess.run(
         ["ruff", "check", "--output-format", "json", *flags, *(sys.argv[1:] or ["."])],
         capture_output=True,

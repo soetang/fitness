@@ -4,9 +4,11 @@ from subprocess import CompletedProcess
 from typing import Callable
 
 import pytest
+from pydantic import JsonValue
 
 RunAdapter = Callable[[str | Path], CompletedProcess[str]]
 RunSelected = Callable[[Path, list[str] | None], CompletedProcess[str]]
+RunConfigured = Callable[[Path, dict[str, JsonValue]], CompletedProcess[str]]
 
 
 def test_reports_offender(tmp_path: Path, run_adapter: RunAdapter):
@@ -58,3 +60,84 @@ def test_native_selection_excludes_other_rules(tmp_path: Path, run_selected_adap
     result = run_selected_adapter(path, ["E501"])
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == []
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import dataclasses\n",
+        "from dataclasses import dataclass\n",
+        "from pydantic.dataclasses import dataclass\n",
+        "from pydantic import dataclasses\n",
+    ],
+)
+def test_banned_api_configuration(
+    tmp_path: Path, run_configured_adapter: RunConfigured, source: str
+):
+    path = tmp_path / "example.py"
+    path.write_text(source)
+    result = run_configured_adapter(
+        path,
+        {
+            "config": {},
+            "selections": [
+                {
+                    "rules": ["TID251"],
+                    "config": {
+                        "flake8-tidy-imports": {
+                            "banned-api": {
+                                "dataclasses": {"msg": "Use Pydantic BaseModel."},
+                                "pydantic.dataclasses": {"msg": "Use Pydantic BaseModel."},
+                            }
+                        }
+                    },
+                }
+            ],
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    findings = json.loads(result.stdout)
+    assert len(findings) == 1
+    assert findings[0]["rule_id"] == "TID251"
+    assert "Use Pydantic BaseModel." in findings[0]["tool_message"]
+
+
+def test_tool_and_function_configuration(tmp_path: Path, run_configured_adapter: RunConfigured):
+    path = tmp_path / "example.py"
+    path.write_text(
+        "def test(a: bool, b: bool, c: bool) -> None:\n    if a and b and c:\n        pass\n"
+    )
+    result = run_configured_adapter(
+        path,
+        {
+            "config": {"preview": True},
+            "selections": [
+                {
+                    "rules": ["PLR0916"],
+                    "config": {"pylint": {"max-bool-expr": 2}},
+                }
+            ],
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert [f["rule_id"] for f in json.loads(result.stdout)] == ["PLR0916"]
+
+
+def test_conflicting_configuration_is_an_error(
+    tmp_path: Path, run_configured_adapter: RunConfigured
+):
+    path = tmp_path / "example.py"
+    path.write_text("value = 1\n")
+    result = run_configured_adapter(
+        path,
+        {
+            "config": {},
+            "selections": [
+                {"rules": ["PLR0916"], "config": {"pylint": {"max-bool-expr": 2}}},
+                {"rules": ["PLR0916"], "config": {"pylint": {"max-bool-expr": 3}}},
+            ],
+        },
+    )
+    assert result.returncode != 0
+    assert result.stdout == ""
+    assert "Conflicting Ruff settings" in result.stderr

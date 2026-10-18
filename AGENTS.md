@@ -13,6 +13,8 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
   Layout fitness functions enforce colocated tests and detect adapter-named
   tests misplaced under `tests/`.
 - Keep tool-specific behavior in integrations, not in the core.
+- Use Pydantic models instead of dataclasses. The `TID251` function in
+  `rules/architecture.yaml` supplies the banned-api settings to Ruff.
 - `rules/architecture.yaml` may contain only fitness functions with
   `type: architecture`; the layout adapter enforces this project-specific rule.
 - Reference native diagnostic IDs in `rules`. Omit `rules` to count every

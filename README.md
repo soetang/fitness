@@ -52,7 +52,10 @@ Ruff and Pyrefly findings preserve native rule IDs (`F401`, `bad-assignment`, et
 Their adapters receive selections over JSON stdin. Explicit IDs select native
 checks; omitted `rules` uses configured checks and counts all returned diagnostics.
 When combined, configured checks are extended with explicit selections. Native
-configuration remains in `pyproject.toml`; these adapters reject nonempty request
+configuration defaults remain in `pyproject.toml`. Ruff applies tool config as
+native top-level overrides and function config under `lint`, using TOML key/value
+CLI arguments. Conflicting settings across selections fail explicitly; compatible
+settings are combined in one invocation. Pyrefly still rejects nonempty request
 config rather than silently ignoring it. Native exit 1 with diagnostics becomes
 successful adapter output; command failures remain errors.
 
@@ -64,6 +67,8 @@ groups/prefixes are not expanded by Fitness's exact-ID finding mapper.
 Architecture functions live in `rules/architecture.yaml`. The layout adapter's
 `architecture-function-type` rule reports every function there whose type is not
 `architecture`. Other definition files may contain other types.
+The Pydantic-model function uses Ruff `TID251` with its `banned-api` configuration
+in YAML to prohibit standard-library and Pydantic dataclasses.
 
 The `type: versioncontrol` function in `rules/versioncontrol.yaml` checks staged
 paths: `rules/` and `tool/` may change
@@ -167,5 +172,6 @@ for experimentation. Still open:
 
 For Ruff experiments, `preview` and `explicit-preview-rules` belong in tool config;
 `pylint.max-bool-expr` belongs in function config. The repository's minimal Ruff
-adapter currently supports rule selection, not config generation or merging.
+adapter supports rule selection and native configuration overrides; incompatible
+function settings currently produce an error rather than separate batches.
 There is no automatic baseline, ratchet, or agent integration.

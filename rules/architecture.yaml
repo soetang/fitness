@@ -14,3 +14,15 @@ functions:
     tool: layout
     rules: [architecture-function-type]
     guidance: Only functions with type architecture belong in rules/architecture.yaml.
+  - title: Use Pydantic models instead of dataclasses
+    type: architecture
+    tool: ruff
+    rules: [TID251]
+    config:
+      flake8-tidy-imports:
+        banned-api:
+          dataclasses:
+            msg: Use a Pydantic BaseModel instead of standard-library dataclasses.
+          pydantic.dataclasses:
+            msg: Use a Pydantic BaseModel instead of Pydantic dataclasses.
+    guidance: Define data models using Pydantic BaseModel or the shared Model base class.

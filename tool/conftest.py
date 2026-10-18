@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic import JsonValue
 
 
 @pytest.fixture
@@ -26,6 +27,20 @@ def run_selected_adapter(request: pytest.FixtureRequest):
         return subprocess.run(
             [sys.executable, str(request.path.parent / "adapter.py"), str(path)],
             input=json.dumps({"config": {}, "selections": [{"rules": rules, "config": {}}]}),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    return run
+
+
+@pytest.fixture
+def run_configured_adapter(request: pytest.FixtureRequest):
+    def run(path: Path, payload: dict[str, JsonValue]):
+        return subprocess.run(
+            [sys.executable, str(request.path.parent / "adapter.py"), str(path)],
+            input=json.dumps(payload),
             capture_output=True,
             text=True,
             check=False,
