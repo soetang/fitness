@@ -1,10 +1,12 @@
 """Collect one reusable import inventory with one Semgrep invocation."""
 
 import importlib.util
+import json
 import os
 import subprocess
-import sys
+from importlib.metadata import distribution
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from pydantic import BaseModel, JsonValue
 
@@ -58,32 +60,41 @@ def scan_imports(root: Path, source_only: bool = False) -> dict[Path, list[tuple
     paths = python_files(root / "src" if source_only else root)
     if not paths:
         return {}
-    process = subprocess.run(
+    binary = distribution("semgrep").locate_file("semgrep/bin/semgrep-core")
+    targets = [
+        "Targets",
         [
-            str(Path(sys.executable).with_name("semgrep")),
-            "scan",
-            "--config",
-            str(Path(__file__).with_name("imports.semgrep")),
-            "--json",
-            "--quiet",
-            "--strict",
-            "--jobs",
-            "1",
-            "--metrics=off",
-            "--disable-version-check",
-            "--disable-nosem",
-            "--no-git-ignore",
-            "--no-rewrite-rule-ids",
-            "--max-target-bytes",
-            "0",
-            *map(str, paths),
+            [
+                "CodeTarget",
+                {
+                    "path": {"fpath": str(path), "ppath": "/" + path.relative_to(root).as_posix()},
+                    "analyzer": "python",
+                    "products": ["sast"],
+                },
+            ]
+            for path in paths
         ],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=45,
-    )
+    ]
+    with NamedTemporaryFile(mode="w", encoding="utf-8") as target_file:
+        json.dump(targets, target_file)
+        target_file.flush()
+        process = subprocess.run(
+            [
+                str(binary),
+                "-rules",
+                str(Path(__file__).with_name("imports.semgrep")),
+                "-targets",
+                target_file.name,
+                "-json_nodots",
+                "-j",
+                "1",
+            ],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=45,
+        )
     if process.returncode:
         raise ValueError(f"Semgrep exited {process.returncode}: {process.stderr or process.stdout}")
     scan = ScanResult.model_validate_json(process.stdout)

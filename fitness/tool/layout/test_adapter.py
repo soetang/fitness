@@ -3,12 +3,16 @@ import subprocess
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
+from typing import cast
 
 import pytest
 import tiktoken
 from pydantic import JsonValue
 
 RunConfiguredAdapter = Callable[[Path, dict[str, JsonValue]], subprocess.CompletedProcess[str]]
+Findings = Callable[[Path], list[dict[str, str]]]
+TokenFindings = Callable[[Path, int, str, dict[str, list[str]]], list[dict[str, str]]]
 
 
 @pytest.fixture
@@ -34,18 +38,17 @@ def architecture_results(
     )
 
 
-def findings(root: Path) -> list[dict[str, str]]:
-    result = subprocess.run(
-        [sys.executable, str(Path(__file__).with_name("adapter.py"))],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return json.loads(result.stdout)
+@pytest.fixture
+def findings(adapter_module: ModuleType) -> Findings:
+    return cast(Findings, adapter_module.findings)
 
 
-def test_reports_each_misplaced_adapter_test(tmp_path: Path):
+@pytest.fixture
+def token_findings(adapter_module: ModuleType) -> TokenFindings:
+    return cast(TokenFindings, adapter_module.token_findings)
+
+
+def test_reports_each_misplaced_adapter_test(tmp_path: Path, findings: Findings):
     tests = tmp_path / "tests" / "nested"
     tests.mkdir(parents=True)
     for name in ("test_adapters.py", "test_ruff_adapter.py", "test_fitness.py"):
@@ -58,7 +61,7 @@ def test_reports_each_misplaced_adapter_test(tmp_path: Path):
     assert all(item["rule_id"] == "adapter-test-location" for item in result)
 
 
-def test_adapter_tests_in_tool_are_allowed(tmp_path: Path):
+def test_adapter_tests_in_tool_are_allowed(tmp_path: Path, findings: Findings):
     tool = tmp_path / "fitness" / "tool" / "example"
     tool.mkdir(parents=True)
     (tool / "adapter.py").touch()
@@ -70,7 +73,9 @@ def test_adapter_tests_in_tool_are_allowed(tmp_path: Path):
     "configuration",
     ["[tool.ruff]\n", "[tool.ruff]\nline-length = 100\n", '[tool.ruff.lint]\nselect = ["F"]\n'],
 )
-def test_rejects_ruff_configuration_in_pyproject(tmp_path: Path, configuration: str):
+def test_rejects_ruff_configuration_in_pyproject(
+    tmp_path: Path, configuration: str, findings: Findings
+):
     (tmp_path / "pyproject.toml").write_text(configuration)
     result = findings(tmp_path)
     assert len(result) == 1
@@ -78,12 +83,12 @@ def test_rejects_ruff_configuration_in_pyproject(tmp_path: Path, configuration: 
     assert result[0]["filename"] == "pyproject.toml"
 
 
-def test_allows_other_native_configuration(tmp_path: Path):
+def test_allows_other_native_configuration(tmp_path: Path, findings: Findings):
     (tmp_path / "pyproject.toml").write_text('[tool.pyrefly]\npython-version = "3.11"\n')
     assert findings(tmp_path) == []
 
 
-def test_rejects_direct_ruff_checks_in_justfile(tmp_path: Path):
+def test_rejects_direct_ruff_checks_in_justfile(tmp_path: Path, findings: Findings):
     (tmp_path / "justfile").write_text("lint:\n    uv run ruff check .\n    ruff check --fix .\n")
     result = findings(tmp_path)
     assert len(result) == 2
@@ -91,7 +96,7 @@ def test_rejects_direct_ruff_checks_in_justfile(tmp_path: Path):
     assert all(item["filename"] == "justfile" for item in result)
 
 
-def test_allows_fitness_and_formatting_recipes(tmp_path: Path):
+def test_allows_fitness_and_formatting_recipes(tmp_path: Path, findings: Findings):
     (tmp_path / "justfile").write_text(
         "# ruff check belongs in the adapter\n"
         "fmt:\n    uv run ruff format .\n"
@@ -100,7 +105,7 @@ def test_allows_fitness_and_formatting_recipes(tmp_path: Path):
     assert findings(tmp_path) == []
 
 
-def test_requires_adapter_folder_and_colocated_tests(tmp_path: Path):
+def test_requires_adapter_folder_and_colocated_tests(tmp_path: Path, findings: Findings):
     tool = tmp_path / "fitness" / "tool"
     tool.mkdir(parents=True)
     (tool / "legacy_adapter.py").touch()
@@ -116,7 +121,7 @@ def test_requires_adapter_folder_and_colocated_tests(tmp_path: Path):
     }
 
 
-def test_architecture_file_allows_only_architecture_functions(tmp_path: Path):
+def test_architecture_file_allows_only_architecture_functions(tmp_path: Path, findings: Findings):
     rules = tmp_path / "fitness" / "functions"
     rules.mkdir(parents=True)
     (rules / "architecture.yaml").write_text("""
@@ -131,7 +136,7 @@ functions:
     assert all(item["filename"] == "fitness/functions/architecture.yaml" for item in result)
 
 
-def test_type_restriction_is_specific_to_architecture_file(tmp_path: Path):
+def test_type_restriction_is_specific_to_architecture_file(tmp_path: Path, findings: Findings):
     rules = tmp_path / "fitness" / "functions"
     rules.mkdir(parents=True)
     (rules / "package.yaml").write_text("functions: [{title: Lint, type: lint}]")
@@ -141,6 +146,7 @@ def test_type_restriction_is_specific_to_architecture_file(tmp_path: Path):
 
 FORBIDDEN_IMPORTS = [
     "import fitness.features.orders.execution",
+    "import fitness.features.orders.execution  # nosemgrep",
     "import fitness.features.orders.execution as private",
     "from fitness.features.orders import execution",
     "from fitness.features.orders.execution import execute",
@@ -195,6 +201,10 @@ def contract_violations(tmp_path_factory: pytest.TempPathFactory) -> list[dict[s
                 "selections": [
                     {"rules": ["contract-only-feature-access"]},
                     {
+                        "rules": ["feature-token-budget"],
+                        "config": {"budget": 1, "encoding": "cl100k_base"},
+                    },
+                    {
                         "rules": ["dependency-placement"],
                         "config": {"module_mapping": {"unused": ["unused"]}},
                     },
@@ -215,6 +225,9 @@ def test_combined_import_checks(contract_violations: list[dict[str, str]]):
     assert len(dependencies) == 1
     assert dependencies[0]["filename"] == "pyproject.toml"
     assert "unused" in dependencies[0]["tool_message"]
+    budgets = [f for f in contract_violations if f["rule_id"] == "feature-token-budget"]
+    assert len(budgets) == 1
+    assert budgets[0]["filename"] == "src/fitness/features/client"
 
 
 @pytest.mark.parametrize("index", range(len(FORBIDDEN_IMPORTS)), ids=FORBIDDEN_IMPORTS)
@@ -249,7 +262,7 @@ def test_enforces_external_callers_and_shared_dependency_direction(
 
 
 def test_combined_token_budget_and_deterministic_file_policy(
-    tmp_path: Path, write_file: Callable[[str, str], Path]
+    tmp_path: Path, write_file: Callable[[str, str], Path], token_findings: TokenFindings
 ):
     text = "hello world\r\n<|endoftext|>\n"
     included = [
@@ -269,18 +282,9 @@ def test_combined_token_budget_and_deterministic_file_policy(
     ]:
         write_file(name, text * 100)
     count = len(tiktoken.get_encoding("cl100k_base").encode(text, disallowed_special=())) * 5
-    config: dict[str, JsonValue] = {
-        "budget": count,
-        "encoding": "cl100k_base",
-        "associated_files": {"orders": ["tests/shared.txt", "tests/shared.txt"]},
-    }
-    result = architecture_results(tmp_path, "feature-token-budget", config)
-    assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout) == []
-    config["budget"] = count - 1
-    result = architecture_results(tmp_path, "feature-token-budget", config)
-    assert result.returncode == 0, result.stderr
-    violations = json.loads(result.stdout)
+    associated_files = {"orders": ["tests/shared.txt", "tests/shared.txt"]}
+    assert token_findings(tmp_path, count, "cl100k_base", associated_files) == []
+    violations = token_findings(tmp_path, count - 1, "cl100k_base", associated_files)
     assert len(violations) == 1
     assert f"{count} tokens" in violations[0]["tool_message"]
 
@@ -402,23 +406,13 @@ def test_only_selected_architecture_checks_execute(
 
 
 def test_token_budget_does_not_follow_symlinks(
-    tmp_path: Path, write_file: Callable[[str, str], Path]
+    tmp_path: Path, write_file: Callable[[str, str], Path], token_findings: TokenFindings
 ):
     write_file("src/fitness/features/orders/contract.py", "pass")
     external = write_file("external/large.txt", "hello world\n" * 1000)
     (tmp_path / "src/fitness/features/orders/linked.txt").symlink_to(external)
     (tmp_path / "linked").symlink_to(external.parent, target_is_directory=True)
-    result = architecture_results(
-        tmp_path,
-        "feature-token-budget",
-        {
-            "budget": 1,
-            "encoding": "cl100k_base",
-            "associated_files": {"orders": ["linked/*.txt"]},
-        },
-    )
-    assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout) == []
+    assert token_findings(tmp_path, 1, "cl100k_base", {"orders": ["linked/*.txt"]}) == []
 
 
 def test_invalid_python_is_an_evaluation_error(
