@@ -1,3 +1,5 @@
+"""Read YAML definitions while preserving diagnostic source locations."""
+
 from pathlib import Path
 from typing import cast
 
@@ -10,6 +12,12 @@ class UniqueLoader(yaml.SafeLoader):
     """Reject duplicate YAML keys instead of silently overwriting definitions."""
 
     def construct_mapping(self, node: yaml.MappingNode, deep: bool = False):
+        """Construct a mapping after rejecting duplicate or nonscalar keys.
+
+        Args:
+            node: YAML mapping node to construct.
+            deep: Whether to construct nested objects eagerly.
+        """
         keys = [self.construct_object(key, deep=deep) for key, _ in node.value]
         try:
             if len(keys) != len(set(keys)):
@@ -20,6 +28,11 @@ class UniqueLoader(yaml.SafeLoader):
 
 
 def find_fitness_documents(path: Path) -> list[Path]:
+    """Find definition files in deterministic order.
+
+    Args:
+        path: YAML file or directory to search recursively.
+    """
     files = (
         sorted(p for p in path.rglob("*") if p.suffix in {".yaml", ".yml"} and p.is_file())
         if path.is_dir()
@@ -31,6 +44,14 @@ def find_fitness_documents(path: Path) -> list[Path]:
 
 
 def read_fitness_document(file: Path) -> tuple[Document, list[int]]:
+    """Parse a document and locate each function's starting line.
+
+    Args:
+        file: YAML definition file to read.
+
+    Returns:
+        Validated document and one-based function line numbers in document order.
+    """
     text = file.read_text()
     document = Document.model_validate(yaml.load(text, Loader=UniqueLoader))
     node = cast(yaml.MappingNode, yaml.compose(text))
@@ -42,6 +63,12 @@ def read_fitness_document(file: Path) -> tuple[Document, list[int]]:
 
 
 def register_document_tools(tools: dict[str, Tool], document: Document) -> None:
+    """Merge document tools into the registry, rejecting duplicate names.
+
+    Args:
+        tools: Registry updated in place as tools are encountered.
+        document: Validated document supplying tool definitions.
+    """
     for name, tool in document.tools.items():
         if name in tools:
             raise FitnessError(f"duplicate tool {name!r}")
@@ -49,6 +76,14 @@ def register_document_tools(tools: dict[str, Tool], document: Document) -> None:
 
 
 def load_fitness_functions(path: Path) -> tuple[dict[str, Tool], list[FitnessFunction]]:
+    """Collect tools and source-located functions from definition documents.
+
+    Args:
+        path: YAML file or directory containing definitions.
+
+    Raises:
+        FitnessError: Loading fails, with the failing document identified.
+    """
     tools: dict[str, Tool] = {}
     fitness_functions = []
     for file in find_fitness_documents(path):

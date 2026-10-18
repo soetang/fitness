@@ -1,3 +1,5 @@
+"""Validate cross-document references and identify overlapping selections."""
+
 from itertools import combinations
 
 from fitness.contracts import FitnessError, FitnessFunction, Tool
@@ -6,6 +8,12 @@ from fitness.contracts import FitnessError, FitnessFunction, Tool
 def validate_tool_references(
     tools: dict[str, Tool], fitness_functions: list[FitnessFunction]
 ) -> None:
+    """Reject functions referring to tools absent from the registry.
+
+    Args:
+        tools: Registered tools indexed by name.
+        fitness_functions: Source-located functions whose references are checked.
+    """
     for fitness_function in fitness_functions:
         function = fitness_function.function
         if function.tool and function.tool not in tools:
@@ -15,6 +23,12 @@ def validate_tool_references(
 def find_overlapping_fitness_functions(
     tools: dict[str, Tool], fitness_functions: list[FitnessFunction]
 ) -> list[str]:
+    """Describe function pairs that may count the same adapter findings.
+
+    Args:
+        tools: Registered tools indexed by name.
+        fitness_functions: Functions whose rule selections are compared.
+    """
     warnings = []
     for name in tools:
         automated = [f for f in fitness_functions if f.function.tool == name]

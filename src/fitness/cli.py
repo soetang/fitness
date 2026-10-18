@@ -1,3 +1,5 @@
+"""Present fitness validation and check results through the command line."""
+
 from pathlib import Path
 from typing import Annotated
 
@@ -16,6 +18,11 @@ Rules = Annotated[Path, typer.Option("--rules", help="YAML file or directory of 
 
 
 def format_finding(finding: Finding) -> str:
+    """Format an adapter diagnostic with its optional source location.
+
+    Args:
+        finding: Diagnostic to display.
+    """
     place = finding.filename or ""
     if finding.location:
         place += f":{finding.location.row}:{finding.location.column}"
@@ -24,6 +31,11 @@ def format_finding(finding: Finding) -> str:
 
 
 def present_failed_fitness_function(result: CheckResult) -> None:
+    """Print a failed function's limit, guidance, and individual findings.
+
+    Args:
+        result: Failed evaluation to display.
+    """
     function = result.fitness_function.function
     typer.echo(f"{result.status}  {function.title}\n{result.fitness_function.source}")
     typer.echo(f"{len(result.findings)} violations · limit: {function.limit}")
@@ -35,6 +47,11 @@ def present_failed_fitness_function(result: CheckResult) -> None:
 
 
 def present_fitness_check_results(results: list[CheckResult]) -> int:
+    """Print failures or a success summary and return the corresponding exit code.
+
+    Args:
+        results: Evaluations whose failed entries should be displayed.
+    """
     failures = [result for result in results if result.status == "FAIL"]
     if not failures:
         typer.echo("success")
@@ -45,6 +62,11 @@ def present_fitness_check_results(results: list[CheckResult]) -> int:
 
 
 def create_app(execute_adapter: ExecuteAdapter = execute_adapter_process) -> typer.Typer:
+    """Build the CLI with an injectable adapter transport.
+
+    Args:
+        execute_adapter: Transport used by the check command to invoke adapters.
+    """
     app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
 
     @app.command()
