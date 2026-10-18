@@ -1,7 +1,7 @@
 import json
+from collections.abc import Callable
 from pathlib import Path
 from subprocess import CompletedProcess
-from typing import Callable
 
 import pytest
 from pydantic import JsonValue
@@ -60,6 +60,14 @@ def test_native_selection_excludes_other_rules(tmp_path: Path, run_selected_adap
     result = run_selected_adapter(path, ["E501"])
     assert result.returncode == 0, result.stderr
     assert json.loads(result.stdout) == []
+
+
+def test_prefix_selection_preserves_native_id(tmp_path: Path, run_selected_adapter: RunSelected):
+    path = tmp_path / "example.py"
+    path.write_text("import os\n")
+    result = run_selected_adapter(path, ["F"])
+    assert result.returncode == 0, result.stderr
+    assert [f["rule_id"] for f in json.loads(result.stdout)] == ["F401"]
 
 
 @pytest.mark.parametrize(

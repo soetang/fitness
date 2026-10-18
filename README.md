@@ -49,10 +49,13 @@ they do not import Fitness. Ruff checks the repository, and Pyrefly checks
 `src/`, `tests/`, and `tool/`.
 
 Ruff and Pyrefly findings preserve native rule IDs (`F401`, `bad-assignment`, etc.).
-The general Ruff function explicitly lists the existing stable E/F/I checks in
+The general Ruff function uses `rules: [E, F, I, UP, SIM]` in
 `rules/package.yaml`; `PGH004` and `TID251` live in dedicated functions. Ruff rule
-selection is defined in YAML, not `pyproject.toml`. Use exact IDs rather than
-prefixes so each finding maps to the intended function.
+selection is defined in YAML, not `pyproject.toml`. Ruff declares
+`rule_matching: prefix`, so `F` matches `F401` while preserving the native ID.
+Other tools default to `rule_matching: exact`. Lint warns about overlapping
+selectors across functions; overlapping selectors within one function never
+double-count a finding.
 `just fmt` reads the package's Ruff rule IDs from that same YAML for automatic
 lint fixes, then runs Ruff's formatter.
 Their adapters receive selections over JSON stdin. Explicit IDs select native
@@ -67,8 +70,8 @@ successful adapter output; command failures remain errors.
 
 Ruff's `PGH004` prohibits blanket noqa directives; rule-specific suppressions are
 allowed. Pyrefly enables both `explicit-any` and `implicit-any` checks, including
-tests and adapters. Use concrete native diagnostic IDs in explicit selections;
-groups/prefixes are not expanded by Fitness's exact-ID finding mapper.
+tests and adapters. Pyrefly uses exact IDs in explicit selections. General Ruff
+and Pyrefly functions omit guidance and rely on their native tool messages.
 
 Architecture functions live in `rules/architecture.yaml`. The layout adapter's
 `architecture-function-type` rule reports every function there whose type is not
@@ -107,7 +110,7 @@ functions:
 A fitness function requires a title and one user-defined type. Omit `tool` for
 nonautomated expectations; these are reported as **NOT AUTOMATED**, never passed.
 Automated functions may omit `rules` to count all findings from that tool's
-configured checks. An explicit list must contain at least one native rule ID.
+configured checks. An explicit list must contain at least one rule ID or selector.
 `limit` defaults to zero and is a shared
 nonnegative integer budget across those IDs. Guidance supplements tool messages.
 Source file/line identifies definitions; no explicit function IDs are needed.
@@ -128,7 +131,7 @@ With `send_input: true`, stdin receives JSON:
 
 Top-level config is invocation-wide; each selection preserves function-specific
 settings. Omitted rules are transmitted as `"rules": null`. Explicit lists filter
-findings by exact native rule ID. All-diagnostic functions overlap with every
+findings using the tool's exact/prefix matching mode. All-diagnostic functions overlap with every
 explicit selection for the same tool, so lint warns about shared counts.
 Integrations own native configuration interpretation, conflict detection,
 and compatible batching. No function metadata is sent. Config is ignored when

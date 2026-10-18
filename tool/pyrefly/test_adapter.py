@@ -1,7 +1,7 @@
 import json
+from collections.abc import Callable
 from pathlib import Path
 from subprocess import CompletedProcess
-from typing import Callable
 
 import pytest
 

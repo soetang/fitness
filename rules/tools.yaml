@@ -2,6 +2,7 @@ tools:
   ruff:
     command: [uv, run, --no-sync, python, tool/ruff/adapter.py]
     send_input: true
+    rule_matching: prefix
   pyrefly:
     command: [uv, run, --no-sync, python, tool/pyrefly/adapter.py]
     send_input: true
