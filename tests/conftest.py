@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -30,3 +31,11 @@ def write_definitions(tmp_path: Path):
         return path
 
     return write
+
+
+@pytest.fixture
+def fitness_functions_from_text(write_definitions: Callable[[str], Path]):
+    def load_text(text: str):
+        return lint_fitness_functions(write_definitions(text))
+
+    return load_text

@@ -1,5 +1,4 @@
 import json
-import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -8,67 +7,6 @@ from typer.testing import CliRunner
 
 from fitness.cli import create_app
 from fitness.contracts import FitnessError
-from fitness.contracts import FitnessFunctions as Suite
-from fitness.features.check.contract import check_fitness_functions as evaluate
-from fitness.features.check.contract import execute_adapter_process as run_command
-from fitness.features.lint.contract import lint_fitness_functions as load
-
-
-def test_shared_counts_limits_and_source(suite: Suite, findings_json: str):
-    requests = []
-
-    def runner(command: list[str], stdin: str | None):
-        assert stdin is not None
-        requests.append((command, json.loads(stdin)))
-        return findings_json
-
-    results = evaluate(suite, runner)
-    assert [r.status for r in results] == ["FAIL", "PASS", "NOT AUTOMATED"]
-    assert [len(r.findings) for r in results] == [1, 1, 0]
-    assert results[0].fitness_function.source.endswith("apis.yaml:2")
-    assert len(requests) == 1
-    assert requests[0][1] == {
-        "config": {"preview": True},
-        "selections": [
-            {"rules": ["API001"], "config": {}},
-            {"rules": ["API001"], "config": {}},
-        ],
-    }
-    assert len(suite.warnings) == 1
-
-
-def test_filter_and_empty_findings(suite: Suite):
-    def runner(command: list[str], stdin: str | None):
-        assert stdin is not None
-        assert len(json.loads(stdin)["selections"]) == 1
-        return "[]"
-
-    results = evaluate(suite, runner, "migration")
-    assert [r.status for r in results] == ["PASS"]
-
-
-def test_disabled_input(suite: Suite):
-    suite.tools["example"].send_input = False
-
-    def runner(command: list[str], stdin: str | None):
-        assert stdin is None
-        return "[]"
-
-    assert evaluate(suite, runner)[0].status == "PASS"
-
-
-@pytest.mark.parametrize(
-    "output",
-    [
-        "not JSON",
-        "{}",
-        '[{"tool":"other", "rule_id":"X", "tool_message":"bad"}]',
-        '[{"tool":"example", "rule_id":"X"}]',
-    ],
-)
-def test_invalid_tool_output(suite: Suite, output: str):
-    with pytest.raises(FitnessError, match="tool 'example'"):
-        evaluate(suite, lambda command, stdin: output)
 
 
 def test_lint_is_offline(definitions_path: Path):
@@ -112,26 +50,6 @@ def test_execution_error_exit(definitions_path: Path):
     assert result.exit_code == 2
     assert "ERROR" in result.output
     assert "PASS" not in result.output
-
-
-def test_real_subprocess(suite: Suite):
-    tool = suite.tools["example"]
-    tool.command = [sys.executable, "tests/fixtures/report.py"]
-    assert evaluate(suite, run_command)[0].status == "FAIL"
-
-
-def test_process_failure_is_not_a_violation():
-    with pytest.raises(FitnessError, match="exit 1"):
-        run_command([sys.executable, "-c", "raise SystemExit(1)"], None)
-
-
-def test_process_without_input():
-    assert run_command([sys.executable, "-c", "print('[]')"], None).strip() == "[]"
-
-
-def test_missing_executable(tmp_path: Path):
-    with pytest.raises(FitnessError, match="No such file"):
-        run_command([str(tmp_path / "nonexistent-command")], None)
 
 
 def test_lint_error_exit(write_definitions: Callable[[str], Path]):
@@ -197,58 +115,3 @@ def test_nonautomated_functions_are_silent(write_definitions: Callable[[str], Pa
     result = CliRunner().invoke(create_app(forbidden_runner), ["check", "--rules", str(path)])
     assert result.exit_code == 0
     assert result.output == "success\n"
-
-
-def test_omitted_rules_count_all_and_warn_on_overlap(
-    write_definitions: Callable[[str], Path], findings_json: str
-):
-    suite = load(
-        write_definitions("""
-tools:
-  example: {command: [example], send_input: true}
-functions:
-  - {title: All diagnostics, type: test, tool: example}
-  - {title: Specific diagnostic, type: test, tool: example, rules: [API001]}
-""")
-    )
-
-    def runner(command: list[str], stdin: str | None):
-        assert stdin is not None
-        assert json.loads(stdin)["selections"][0]["rules"] is None
-        return findings_json
-
-    assert len(suite.warnings) == 1
-    assert [r.status for r in evaluate(suite, runner)] == ["FAIL", "FAIL"]
-
-
-@pytest.mark.parametrize(
-    ("first", "second", "counts", "warning_count"),
-    [
-        ("[F]", "[F401]", [0, 1], 0),
-        ("[F401]", "[F]", [1, 0], 0),
-        ("[E]", "[F401]", [0, 1], 0),
-        ("[F, F401]", "[E]", [1, 0], 0),
-        ("[F]", "null", [0, 1], 1),
-        ("null", "null", [1, 1], 1),
-    ],
-)
-def test_core_matches_reported_rule_id_exactly(
-    write_definitions: Callable[[str], Path],
-    first: str,
-    second: str,
-    counts: list[int],
-    warning_count: int,
-):
-    suite = load(
-        write_definitions(f"""
-tools:
-  example: {{command: [example]}}
-functions:
-  - {{title: First, type: test, tool: example, rules: {first}}}
-  - {{title: Second, type: test, tool: example, rules: {second}}}
-""")
-    )
-    output = '[{"tool":"example", "rule_id":"F401", "tool_message":"Unused import"}]'
-    results = evaluate(suite, lambda command, stdin: output)
-    assert [len(result.findings) for result in results] == counts
-    assert len(suite.warnings) == warning_count
