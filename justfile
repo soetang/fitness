@@ -8,38 +8,36 @@ default:
 setup:
     uv sync --locked
 
-test: _test
-    @echo success
+test:
+    @{{quiet}} just _test
 
 _test:
-    @{{quiet}} uv run pytest
+    @{{quiet}} --silent uv run pytest
 
-lint: _lint
-    @echo success
+lint:
+    @{{quiet}} just _lint
 
 _lint: _runner-ready
-    @{{quiet}} "{{fitness_cli}}" lint
-    @{{quiet}} just _format --check
+    @{{quiet}} --silent "{{fitness_cli}}" lint
+    @{{quiet}} --silent just _format --check
 
-fitness: _fitness
-    @echo success
+fitness:
+    @{{quiet}} just _fitness
 
 _fitness: _runner-ready
-    @{{quiet}} "{{fitness_cli}}" check
+    @{{quiet}} --silent "{{fitness_cli}}" check
 
-check: _test _lint _fitness
-    @echo success
+check:
+    @{{quiet}} just _test _lint _fitness
 
 fmt:
     @{{quiet}} just _format
-    @echo success
 
 _format *args:
     @config=$(uv run python fitness/tool/ruff/format_config.py) && uv run ruff format --config "$config" {{args}} .
 
 typecheck: _runner-ready
     @{{quiet}} "{{fitness_cli}}" check --type typing
-    @echo success
 
 build:
     uv build --wheel
