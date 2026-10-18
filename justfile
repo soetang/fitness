@@ -22,8 +22,8 @@ check: test lint fitness
 fmt:
     uv run ruff format --config "$(uv run python fitness/tool/ruff/format_config.py)" .
 
-typecheck:
-    uv run pyrefly check
+typecheck: _runner-ready
+    @"{{fitness_cli}}" check --type typing
 
 build:
     uv build --wheel
