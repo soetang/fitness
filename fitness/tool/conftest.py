@@ -72,7 +72,7 @@ def run_adapter_batch(request: pytest.FixtureRequest, tmp_path_factory: pytest.T
             for name in examples
         }
         assert sum(map(len, by_file.values())) == len(findings)
-        return root, {name: json.dumps(items) for name, items in by_file.items()}
+        return root, by_file
 
     return run
 

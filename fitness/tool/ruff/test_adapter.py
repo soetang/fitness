@@ -11,7 +11,7 @@ from pydantic import JsonValue
 RunAdapter = Callable[[str | Path], CompletedProcess[str]]
 RunSelected = Callable[[Path, list[str] | None], CompletedProcess[str]]
 RunConfigured = Callable[[Path, dict[str, JsonValue]], CompletedProcess[str]]
-Batch = tuple[Path, dict[str, str]]
+Batch = tuple[Path, dict[str, list[dict[str, JsonValue]]]]
 RunBatch = Callable[[dict[str, str], dict[str, JsonValue]], Batch]
 
 pytestmark = pytest.mark.xdist_group("ruff_native_examples")
@@ -99,17 +99,22 @@ def prefix_diagnostics(tmp_path_factory: pytest.TempPathFactory, adapter_module:
 
 def test_reports_offender(default_examples: Batch):
     root, results = default_examples
-    findings = json.loads(results["bad.py"])
+    findings = results["bad.py"]
     assert len(findings) == 1
     assert findings[0]["tool"] == "ruff"
     assert findings[0]["rule_id"] == "F401"
-    assert "F401" in findings[0]["tool_message"]
-    assert Path(findings[0]["filename"]).resolve() == root / "bad.py"
-    assert findings[0]["location"]["row"] == 1
+    message, filename, location = (
+        findings[0]["tool_message"],
+        findings[0]["filename"],
+        findings[0]["location"],
+    )
+    assert isinstance(message, str) and "F401" in message
+    assert isinstance(filename, str) and Path(filename).resolve() == root / "bad.py"
+    assert isinstance(location, dict) and location["row"] == 1
 
 
 def test_clean_file(default_examples: Batch):
-    assert json.loads(default_examples[1]["clean.py"]) == []
+    assert default_examples[1]["clean.py"] == []
 
 
 def test_command_error(run_adapter: RunAdapter):
@@ -120,12 +125,12 @@ def test_command_error(run_adapter: RunAdapter):
 
 
 @pytest.mark.parametrize(
-    ("comment", "expected"),
-    SUPPRESSION_EXAMPLES,
+    ("index", "expected"),
+    [(index, expected) for index, (_, expected) in enumerate(SUPPRESSION_EXAMPLES)],
+    ids=[comment for comment, _ in SUPPRESSION_EXAMPLES],
 )
-def test_blanket_suppressions_only(suppression_examples: Batch, comment: str, expected: list[str]):
-    index = SUPPRESSION_EXAMPLES.index((comment, expected))
-    assert [f["rule_id"] for f in json.loads(suppression_examples[1][f"{index}.py"])] == expected
+def test_blanket_suppressions_only(suppression_examples: Batch, index: int, expected: list[str]):
+    assert [f["rule_id"] for f in suppression_examples[1][f"{index}.py"]] == expected
 
 
 def test_native_selection_excludes_other_rules(tmp_path: Path, run_selected_adapter: RunSelected):
@@ -180,15 +185,16 @@ def test_specificity_across_function_selections(
 
 
 @pytest.mark.parametrize(
-    "source",
-    BANNED_EXAMPLES,
+    "index",
+    range(len(BANNED_EXAMPLES)),
+    ids=BANNED_EXAMPLES,
 )
-def test_banned_api_configuration(banned_examples: Batch, source: str):
-    index = BANNED_EXAMPLES.index(source)
-    findings = json.loads(banned_examples[1][f"{index}.py"])
+def test_banned_api_configuration(banned_examples: Batch, index: int):
+    findings = banned_examples[1][f"{index}.py"]
     assert len(findings) == 1
     assert findings[0]["rule_id"] == "TID251"
-    assert "Use Pydantic BaseModel." in findings[0]["tool_message"]
+    message = findings[0]["tool_message"]
+    assert isinstance(message, str) and "Use Pydantic BaseModel." in message
 
 
 def test_tool_and_function_configuration(tmp_path: Path, run_configured_adapter: RunConfigured):

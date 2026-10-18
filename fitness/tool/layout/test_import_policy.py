@@ -2,12 +2,11 @@ import importlib
 import json
 import subprocess
 import sys
-from collections.abc import Mapping
 from pathlib import Path
-from types import MappingProxyType, ModuleType
+from types import ModuleType
 
 import pytest
-from pydantic import BaseModel, ConfigDict, JsonValue
+from pydantic import BaseModel, JsonValue
 
 pytestmark = pytest.mark.xdist_group("layout_imports")
 
@@ -62,10 +61,8 @@ COMBINED_REQUEST: dict[str, JsonValue] = {
 
 
 class ImportCase(BaseModel):
-    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
-
     root: Path
-    references: MappingProxyType[Path, tuple[tuple[str, int], ...]]
+    references: dict[Path, list[tuple[str, int]]]
 
     def scan(self, root: Path, source_only: bool) -> dict[Path, list[tuple[str, int]]]:
         assert root == self.root
@@ -84,7 +81,7 @@ class ImportCase(BaseModel):
 @pytest.fixture(scope="module")
 def import_cases(
     tmp_path_factory: pytest.TempPathFactory, adapter_module: ModuleType
-) -> Mapping[str, ImportCase]:
+) -> dict[str, ImportCase]:
     """One native manifest, independent roots, no mutations after fact collection."""
     imports = importlib.import_module("imports")  # Loaded by the real adapter fixture.
     contract = {
@@ -158,18 +155,13 @@ dev = ["pytest", "tiktoken"]
         references: dict[Path, list[tuple[str, int]]] = imports.collect_import_references(
             root, own_paths, own_scan
         )
-        cases[name] = ImportCase(
-            root=root,
-            references=MappingProxyType(
-                {path: tuple(values) for path, values in references.items()}
-            ),
-        )
-    return MappingProxyType(cases)
+        cases[name] = ImportCase(root=root, references=references)
+    return cases
 
 
 @pytest.fixture(scope="module")
 def contract_violations(
-    import_cases: Mapping[str, ImportCase], adapter_module: ModuleType
+    import_cases: dict[str, ImportCase], adapter_module: ModuleType
 ) -> list[dict[str, str]]:
     return import_cases["contract"].evaluate(adapter_module, COMBINED_REQUEST)
 
@@ -213,7 +205,7 @@ def test_enforces_external_callers_and_shared_dependency_direction(
 
 
 def test_dependency_mapping_typing_extras_markers_and_build_requirements(
-    import_cases: Mapping[str, ImportCase], adapter_module: ModuleType
+    import_cases: dict[str, ImportCase], adapter_module: ModuleType
 ):
     violations = import_cases["dependencies"].evaluate(
         adapter_module,
@@ -244,7 +236,7 @@ def test_dependency_mapping_typing_extras_markers_and_build_requirements(
 
 
 def test_only_selected_architecture_checks_execute(
-    import_cases: Mapping[str, ImportCase], adapter_module: ModuleType
+    import_cases: dict[str, ImportCase], adapter_module: ModuleType
 ):
     result = import_cases["selection"].evaluate(
         adapter_module, {"selections": [{"rules": ["contract-only-feature-access"]}]}
@@ -252,8 +244,8 @@ def test_only_selected_architecture_checks_execute(
     assert [f["rule_id"] for f in result] == ["contract-only-feature-access"]
 
 
-def test_later_failure_discards_existing_findings(
-    import_cases: Mapping[str, ImportCase], adapter_module: ModuleType
+def test_invalid_selection_cli_has_no_partial_output(
+    import_cases: dict[str, ImportCase], adapter_module: ModuleType
 ):
     case = import_cases["selection"]
     selection: JsonValue = {"rules": ["contract-only-feature-access"]}
@@ -271,8 +263,8 @@ def test_later_failure_discards_existing_findings(
     assert failed.stdout == ""
 
 
-def test_feature_test_placement_and_contract_checks_share_analysis(
-    import_cases: Mapping[str, ImportCase], adapter_module: ModuleType
+def test_feature_test_placement_and_contract_checks_share_inventory(
+    import_cases: dict[str, ImportCase], adapter_module: ModuleType
 ):
     result = import_cases["placement"].evaluate(
         adapter_module,
@@ -286,7 +278,7 @@ def test_feature_test_placement_and_contract_checks_share_analysis(
 
 
 def test_placement_check_can_run_on_its_own(
-    import_cases: Mapping[str, ImportCase], adapter_module: ModuleType
+    import_cases: dict[str, ImportCase], adapter_module: ModuleType
 ):
     violations = import_cases["placement-alone"].evaluate(
         adapter_module, {"selections": [{"rules": ["feature-test-location"]}]}
@@ -297,7 +289,7 @@ def test_placement_check_can_run_on_its_own(
 
 
 def test_relative_repository_path_matches_absolute_path(
-    import_cases: Mapping[str, ImportCase],
+    import_cases: dict[str, ImportCase],
     contract_violations: list[dict[str, str]],
 ):
     root = import_cases["contract"].root

@@ -8,7 +8,7 @@ from pydantic import JsonValue
 
 RunAdapter = Callable[[str | Path], CompletedProcess[str]]
 RunSelected = Callable[[Path, list[str] | None], CompletedProcess[str]]
-Batch = tuple[Path, dict[str, str]]
+Batch = tuple[Path, dict[str, list[dict[str, JsonValue]]]]
 RunBatch = Callable[[dict[str, str], dict[str, JsonValue]], Batch]
 
 pytestmark = pytest.mark.xdist_group("pyrefly_native_examples")
@@ -34,17 +34,22 @@ def native_examples(run_adapter_batch: RunBatch) -> Batch:
 
 def test_reports_offender(native_examples: Batch):
     root, results = native_examples
-    findings = json.loads(results["bad.py"])
+    findings = results["bad.py"]
     assert len(findings) == 1
     assert findings[0]["tool"] == "pyrefly"
     assert findings[0]["rule_id"] == "bad-assignment"
-    assert "bad-assignment" in findings[0]["tool_message"]
-    assert Path(findings[0]["filename"]).resolve() == root / "bad.py"
-    assert findings[0]["location"]["row"] == 1
+    message, filename, location = (
+        findings[0]["tool_message"],
+        findings[0]["filename"],
+        findings[0]["location"],
+    )
+    assert isinstance(message, str) and "bad-assignment" in message
+    assert isinstance(filename, str) and Path(filename).resolve() == root / "bad.py"
+    assert isinstance(location, dict) and location["row"] == 1
 
 
 def test_clean_file(native_examples: Batch):
-    assert json.loads(native_examples[1]["clean.py"]) == []
+    assert native_examples[1]["clean.py"] == []
 
 
 def test_command_error(run_adapter: RunAdapter):
@@ -54,14 +59,14 @@ def test_command_error(run_adapter: RunAdapter):
     assert result.stderr
 
 
-@pytest.mark.parametrize(("source", "code"), ANY_EXAMPLES)
-def test_any_is_disallowed(native_examples: Batch, source: str, code: str):
-    assert code in [f["rule_id"] for f in json.loads(native_examples[1][f"{code}.py"])]
+@pytest.mark.parametrize("code", [code for _, code in ANY_EXAMPLES])
+def test_any_is_disallowed(native_examples: Batch, code: str):
+    assert code in [f["rule_id"] for f in native_examples[1][f"{code}.py"]]
 
 
 def test_native_selection(native_examples: Batch, run_selected_adapter: RunSelected):
     root, results = native_examples
-    assert {f["rule_id"] for f in json.loads(results["mixed.py"])} == {
+    assert {f["rule_id"] for f in results["mixed.py"]} == {
         "explicit-any",
         "bad-assignment",
     }
