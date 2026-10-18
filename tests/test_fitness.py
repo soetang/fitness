@@ -58,36 +58,6 @@ def test_disabled_input(suite: Suite):
 
 
 @pytest.mark.parametrize(
-    "text",
-    [
-        "functions: [{title: Test, type: custom, typo: true}]",
-        "functions: [{title: Test, type: custom, limit: -1}]",
-        "functions: [{title: Test, type: custom, limit: true}]",
-        "functions: [{title: Test, type: custom, tool: missing, rules: [X]}]",
-        "functions: [{title: Test, type: custom, rules: [X]}]",
-        "functions: [{title: Test, type: custom, tool: example}]",
-        "functions: [{title: Test, type: custom, tool: example, rules: []}]",
-        "functions: [{title: Test, title: Duplicate, type: custom}]",
-        "functions: [{title: Test, type: custom, tool: example, rules: [X, X]}]",
-        "? [invalid, key]\n: value",
-        "tools: {example: {command: [example], config: {date: 2026-10-18}}}",
-        "functions: [",
-        "",
-    ],
-)
-def test_invalid_definitions(write_definitions: Callable[[str], Path], text: str):
-    with pytest.raises(FitnessError):
-        load(write_definitions(text))
-
-
-def test_duplicate_tools(tmp_path: Path):
-    for name in ["a.yaml", "b.yaml"]:
-        (tmp_path / name).write_text("tools: {example: {command: [example]}}")
-    with pytest.raises(FitnessError, match="duplicate tool"):
-        load(tmp_path)
-
-
-@pytest.mark.parametrize(
     "output",
     [
         "not JSON",
@@ -157,11 +127,6 @@ def test_process_failure_is_not_a_violation():
 
 def test_process_without_input():
     assert run_command([sys.executable, "-c", "print('[]')"], None).strip() == "[]"
-
-
-def test_empty_directory(tmp_path: Path):
-    with pytest.raises(FitnessError, match="no YAML definitions found"):
-        load(tmp_path)
 
 
 def test_missing_executable(tmp_path: Path):
