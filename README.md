@@ -32,6 +32,7 @@ just check
 
 ## Documentation
 
+- [Glossary](docs/glossary.md)
 - [Definitions and CLI behavior](docs/reference.md#definitions)
 - [Writing an adapter](docs/adapters.md)
 - [Development workflow and technical reference](docs/reference.md)
