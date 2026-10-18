@@ -19,6 +19,9 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
   `type: architecture`; the layout adapter enforces this project-specific rule.
 - Reference native diagnostic IDs in `rules`. Omit `rules` to count every
   diagnostic from a tool's configured checks; an empty list is invalid.
+- Keep this project's Ruff selection in the YAML fitness functions, not in
+  `pyproject.toml`. The general lint function lists exact IDs without duplicating
+  rules assigned to dedicated functions.
 - Do not use blanket `# noqa` suppressions. Rule-specific `# noqa: <rule>`
   directives are allowed. Enforce this through Ruff's native `PGH004` rule.
 - Disallow explicit and implicit `Any` using Pyrefly's configured checks.

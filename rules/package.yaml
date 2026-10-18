@@ -2,6 +2,71 @@ functions:
   - title: Keep Python code free of lint diagnostics
     type: lint
     tool: ruff
+    rules:
+      # General checks; PGH004 and TID251 have dedicated fitness functions.
+      - E101
+      - E401
+      - E402
+      - E501
+      - E701
+      - E702
+      - E703
+      - E711
+      - E712
+      - E713
+      - E714
+      - E721
+      - E722
+      - E731
+      - E741
+      - E742
+      - E743
+      - E902
+      - F401
+      - F402
+      - F403
+      - F404
+      - F405
+      - F406
+      - F407
+      - F501
+      - F502
+      - F503
+      - F504
+      - F505
+      - F506
+      - F507
+      - F508
+      - F509
+      - F521
+      - F522
+      - F523
+      - F524
+      - F525
+      - F541
+      - F601
+      - F602
+      - F621
+      - F622
+      - F631
+      - F632
+      - F633
+      - F634
+      - F701
+      - F702
+      - F704
+      - F706
+      - F707
+      - F722
+      - F811
+      - F821
+      - F822
+      - F823
+      - F841
+      - F842
+      - F901
+      - I001
+      - I002
     guidance: Fix the reported Ruff diagnostic; use just fmt for automatic fixes.
   - title: Keep Python code type-correct
     type: typing

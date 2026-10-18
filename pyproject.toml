@@ -24,9 +24,6 @@ dev = [
 [tool.ruff]
 line-length = 100
 
-[tool.ruff.lint]
-select = ["E", "F", "I"]
-
 [tool.pytest.ini_options]
 testpaths = ["tests", "tool"]
 addopts = "--import-mode=importlib --cov=fitness --cov-branch --cov-report=term-missing --cov-fail-under=100"

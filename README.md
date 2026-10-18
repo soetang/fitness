@@ -49,6 +49,12 @@ they do not import Fitness. Ruff checks the repository, and Pyrefly checks
 `src/`, `tests/`, and `tool/`.
 
 Ruff and Pyrefly findings preserve native rule IDs (`F401`, `bad-assignment`, etc.).
+The general Ruff function explicitly lists the existing stable E/F/I checks in
+`rules/package.yaml`; `PGH004` and `TID251` live in dedicated functions. Ruff rule
+selection is defined in YAML, not `pyproject.toml`. Use exact IDs rather than
+prefixes so each finding maps to the intended function.
+`just fmt` reads the package's Ruff rule IDs from that same YAML for automatic
+lint fixes, then runs Ruff's formatter.
 Their adapters receive selections over JSON stdin. Explicit IDs select native
 checks; omitted `rules` uses configured checks and counts all returned diagnostics.
 When combined, configured checks are extended with explicit selections. Native
