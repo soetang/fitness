@@ -80,3 +80,33 @@ def test_duplicate_selections_report_each_finding_once(
     )
     assert result.returncode == 0, result.stderr
     assert [item["rule_id"] for item in json.loads(result.stdout)] == ["fitness-owns-ruff-check"]
+
+
+@pytest.mark.parametrize(
+    "additional_rules",
+    [
+        [],
+        ["contract-only-feature-access"],
+        ["feature-test-location"],
+        ["contract-only-feature-access", "feature-test-location"],
+    ],
+)
+def test_selected_rules_determine_shared_import_scope(
+    tmp_path: Path,
+    write_file: Callable[[str, str], Path],
+    run_configured_adapter: RunAdapter,
+    additional_rules: list[str],
+):
+    write_file("src/example.py", "import os\n")
+    write_file("tests/test_broken.py", "def invalid syntax")
+    selections: list[JsonValue] = [
+        {"rules": ["dependency-placement"], "config": {"module_mapping": {}}},
+        *[{"rules": cast(JsonValue, [rule])} for rule in additional_rules],
+    ]
+    result = run_configured_adapter(tmp_path, {"selections": selections})
+    if additional_rules:
+        assert result.returncode != 0
+        assert result.stdout == ""
+    else:
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == []

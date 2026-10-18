@@ -6,6 +6,7 @@ import sys
 import tomllib
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal, TypeVar
 
 from architecture import (
     contract_findings,
@@ -45,13 +46,38 @@ class Request(Settings):
     selections: list[Selection] = Field(default_factory=list)
 
 
+ImportInventory = dict[Path, list[tuple[str, int]]]
+Evaluator = Callable[[Path, ImportInventory], list[dict[str, str]]]
+ScanScope = Literal["none", "source", "repository"]
+S = TypeVar("S", bound=Settings)
+
+
+class Rule(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    prepare: Callable[[dict[str, JsonValue]], Evaluator]
+    scope: ScanScope
+
+
+def define_rule(
+    settings_type: type[S],
+    evaluate: Callable[[Path, S, ImportInventory], list[dict[str, str]]],
+    scope: ScanScope = "none",
+) -> Rule:
+    def prepare(config: dict[str, JsonValue]) -> Evaluator:
+        settings = settings_type.model_validate(config)
+        return lambda root, imports: evaluate(root, settings, imports)
+
+    return Rule(prepare=prepare, scope=scope)
+
+
 def findings(root: Path, request: Request) -> list[dict[str, str]]:
     root = root.resolve()
     configurations = validate_layout_selections(request)
     imports = analyze_selected_imports(root, set(configurations))
     results: list[dict[str, str]] = []
-    for rule, settings in configurations.items():
-        results.extend(evaluate_layout_selection(root, rule, settings, imports))
+    for evaluate in configurations.values():
+        results.extend(evaluate(root, imports))
     return results
 
 
@@ -67,46 +93,22 @@ def collect_layout_selections(request: Request) -> dict[str, dict[str, JsonValue
     return configurations
 
 
-def validate_layout_selections(request: Request) -> dict[str, Settings]:
-    setting_types: dict[str, type[Settings]] = {
-        "source-test-file-length": FileLengthSettings,
-        "feature-test-location": Settings,
-        "feature-token-budget": TokenSettings,
-        "contract-only-feature-access": Settings,
-        "dependency-placement": DependencySettings,
-        "adapter-test-location": Settings,
-        "adapter-folder": Settings,
-        "ruff-config-location": Settings,
-        "fitness-owns-ruff-check": Settings,
-    }
-    validated: dict[str, Settings] = {}
+def validate_layout_selections(request: Request) -> dict[str, Evaluator]:
+    validated: dict[str, Evaluator] = {}
     for rule, config in collect_layout_selections(request).items():
-        if rule not in setting_types:
+        if rule not in RULES:
             raise ValueError(f"Unsupported layout rule: {rule}")
-        validated[rule] = setting_types[rule].model_validate(config)
+        validated[rule] = RULES[rule].prepare(config)
     return validated
 
 
 def analyze_selected_imports(
     root: Path, selected_rules: set[str]
 ) -> dict[Path, list[tuple[str, int]]]:
-    return (
-        scan_imports(
-            root,
-            source_only=not selected_rules
-            & {
-                "contract-only-feature-access",
-                "feature-test-location",
-            },
-        )
-        if selected_rules
-        & {
-            "contract-only-feature-access",
-            "dependency-placement",
-            "feature-test-location",
-        }
-        else {}
-    )
+    scopes = {RULES[rule].scope for rule in selected_rules}
+    if scopes <= {"none"}:
+        return {}
+    return scan_imports(root, source_only="repository" not in scopes)
 
 
 def check_runtime_dependency_usage(
@@ -125,30 +127,6 @@ def check_runtime_dependency_usage(
         settings.module_mapping,
         project.get("build-system", {}).get("requires", []),
     )
-
-
-def evaluate_layout_selection(
-    root: Path, rule: str, settings: Settings, imports: dict[Path, list[tuple[str, int]]]
-) -> list[dict[str, str]]:
-    if isinstance(settings, FileLengthSettings):
-        return file_length_findings(root, settings.max_lines)
-    if isinstance(settings, TokenSettings):
-        return token_findings(root, settings.budget, settings.encoding)
-    if isinstance(settings, DependencySettings):
-        return check_runtime_dependency_usage(root, settings, imports)
-    import_checks = {
-        "feature-test-location": feature_test_findings,
-        "contract-only-feature-access": contract_findings,
-    }
-    if rule in import_checks:
-        return import_checks[rule](root, imports)
-    repository_checks: dict[str, Callable[[Path], list[dict[str, str]]]] = {
-        "adapter-test-location": adapter_test_findings,
-        "adapter-folder": adapter_folder_findings,
-        "ruff-config-location": ruff_config_findings,
-        "fitness-owns-ruff-check": ruff_check_findings,
-    }
-    return repository_checks[rule](root)
 
 
 def adapter_test_findings(root: Path) -> list[dict[str, str]]:
@@ -223,6 +201,39 @@ def ruff_check_findings(root: Path) -> list[dict[str, str]]:
             and re.search(r"\bruff\s+check\b", line)
         )
     return results
+
+
+RULES: dict[str, Rule] = {
+    "source-test-file-length": define_rule(
+        FileLengthSettings,
+        lambda root, settings, imports: file_length_findings(root, settings.max_lines),
+    ),
+    "feature-test-location": define_rule(
+        Settings, lambda root, settings, imports: feature_test_findings(root, imports), "repository"
+    ),
+    "feature-token-budget": define_rule(
+        TokenSettings,
+        lambda root, settings, imports: token_findings(root, settings.budget, settings.encoding),
+    ),
+    "contract-only-feature-access": define_rule(
+        Settings, lambda root, settings, imports: contract_findings(root, imports), "repository"
+    ),
+    "dependency-placement": define_rule(
+        DependencySettings, check_runtime_dependency_usage, "source"
+    ),
+    "adapter-test-location": define_rule(
+        Settings, lambda root, settings, imports: adapter_test_findings(root)
+    ),
+    "adapter-folder": define_rule(
+        Settings, lambda root, settings, imports: adapter_folder_findings(root)
+    ),
+    "ruff-config-location": define_rule(
+        Settings, lambda root, settings, imports: ruff_config_findings(root)
+    ),
+    "fitness-owns-ruff-check": define_rule(
+        Settings, lambda root, settings, imports: ruff_check_findings(root)
+    ),
+}
 
 
 if __name__ == "__main__":
