@@ -15,7 +15,7 @@ lint: _runner-ready
     @{{quiet}} "{{fitness_cli}}" lint ::: just _format --check
 
 fitness: _runner-ready
-    @{{quiet}} "{{fitness_cli}}" check
+    @"{{fitness_cli}}" check
 
 check:
     @{{quiet}} just test ::: just lint ::: just fitness
@@ -27,7 +27,7 @@ _format *args:
     @config=$(uv run python fitness/tool/ruff/format_config.py) && uv run ruff format --config "$config" {{args}} .
 
 typecheck: _runner-ready
-    @{{quiet}} "{{fitness_cli}}" check --type typing
+    @"{{fitness_cli}}" check --type typing
 
 build:
     uv build --wheel
