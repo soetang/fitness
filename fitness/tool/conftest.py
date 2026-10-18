@@ -50,6 +50,33 @@ def run_adapter(request: pytest.FixtureRequest):
     return run
 
 
+@pytest.fixture(scope="module")
+def run_adapter_batch(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory):
+    """Run compatible examples together, retaining every file's native findings."""
+
+    def run(examples: dict[str, str], payload: dict[str, JsonValue]):
+        root = tmp_path_factory.mktemp(request.path.parent.name)
+        for name, source in examples.items():
+            (root / name).write_text(source)
+        result = subprocess.run(
+            [sys.executable, str(request.path.parent / "adapter.py"), str(root)],
+            input=json.dumps(payload),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr
+        findings = json.loads(result.stdout)
+        by_file = {
+            name: [item for item in findings if Path(item["filename"]).resolve() == root / name]
+            for name in examples
+        }
+        assert sum(map(len, by_file.values())) == len(findings)
+        return root, {name: json.dumps(items) for name, items in by_file.items()}
+
+    return run
+
+
 @pytest.fixture
 def run_selected_adapter(request: pytest.FixtureRequest):
     def run(path: Path, rules: list[str] | None):

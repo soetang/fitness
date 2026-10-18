@@ -2,6 +2,7 @@ import json
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
@@ -42,11 +43,9 @@ def stage(root: Path, paths: list[str]) -> None:
         ],
     ],
 )
-def test_allowed_commit_groups(repository: Path, run_adapter: RunAdapter, paths: list[str]):
+def test_allowed_commit_groups(repository: Path, adapter_module: ModuleType, paths: list[str]):
     stage(repository, paths)
-    result = run_adapter(repository)
-    assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout) == []
+    assert adapter_module.findings(repository) == []
 
 
 @pytest.mark.parametrize(
@@ -55,24 +54,22 @@ def test_allowed_commit_groups(repository: Path, run_adapter: RunAdapter, paths:
 )
 @pytest.mark.parametrize("implementation", ["src/example.py", "tests/test_example.py"])
 def test_rejects_every_mixed_pair(
-    repository: Path, run_adapter: RunAdapter, definition: str, implementation: str
+    repository: Path, adapter_module: ModuleType, definition: str, implementation: str
 ):
     stage(repository, [definition, implementation])
-    result = run_adapter(repository)
-    assert result.returncode == 0, result.stderr
-    findings = json.loads(result.stdout)
+    findings = adapter_module.findings(repository)
     assert len(findings) == 1
     assert findings[0]["rule_id"] == "separate-definition-and-implementation-changes"
     assert definition in findings[0]["tool_message"]
     assert implementation in findings[0]["tool_message"]
 
 
-def test_unstaged_changes_do_not_affect_commit(repository: Path, run_adapter: RunAdapter):
+def test_unstaged_changes_do_not_affect_commit(repository: Path, adapter_module: ModuleType):
     stage(repository, ["fitness/functions/example.yaml"])
     source = repository / "src" / "example.py"
     source.parent.mkdir()
     source.write_text("unstaged\n")
-    assert json.loads(run_adapter(repository).stdout) == []
+    assert adapter_module.findings(repository) == []
 
 
 def test_non_repository_is_an_execution_error(tmp_path: Path, run_adapter: RunAdapter):
@@ -89,18 +86,18 @@ def test_non_repository_is_an_execution_error(tmp_path: Path, run_adapter: RunAd
         "docs/features/client/design.md",
     ],
 )
-def test_rejects_multiple_staged_features(repository: Path, run_adapter: RunAdapter, second: str):
+def test_rejects_multiple_staged_features(
+    repository: Path, adapter_module: ModuleType, second: str
+):
     stage(repository, ["src/fitness/features/orders/contract.py", second])
-    result = run_adapter(repository)
-    assert result.returncode == 0, result.stderr
-    violations = json.loads(result.stdout)
+    violations = adapter_module.findings(repository)
     assert len(violations) == 1
     assert violations[0]["rule_id"] == "one-feature-per-commit"
 
 
 @pytest.mark.parametrize("rename", [False, True])
 def test_deletions_and_cross_feature_renames(
-    repository: Path, run_adapter: RunAdapter, rename: bool
+    repository: Path, adapter_module: ModuleType, rename: bool
 ):
     original = "src/fitness/features/orders/contract.py"
     stage(repository, [original])
@@ -121,20 +118,18 @@ def test_deletions_and_cross_feature_renames(
     else:
         git(repository, "rm", original)
         stage(repository, [target])
-    result = run_adapter(repository)
-    assert result.returncode == 0, result.stderr
-    assert [f["rule_id"] for f in json.loads(result.stdout)] == ["one-feature-per-commit"]
+    assert [f["rule_id"] for f in adapter_module.findings(repository)] == ["one-feature-per-commit"]
 
 
-def test_unstaged_second_feature_is_ignored(repository: Path, run_adapter: RunAdapter):
+def test_unstaged_second_feature_is_ignored(repository: Path, adapter_module: ModuleType):
     stage(repository, ["src/fitness/features/orders/contract.py"])
     path = repository / "src/fitness/features/client/contract.py"
     path.parent.mkdir(parents=True)
     path.write_text("unstaged\n")
-    assert json.loads(run_adapter(repository).stdout) == []
+    assert adapter_module.findings(repository) == []
 
 
-def test_same_feature_rename_is_allowed(repository: Path, run_adapter: RunAdapter):
+def test_same_feature_rename_is_allowed(repository: Path, adapter_module: ModuleType):
     original = "src/fitness/features/orders/old.py"
     stage(repository, [original])
     git(
@@ -148,7 +143,7 @@ def test_same_feature_rename_is_allowed(repository: Path, run_adapter: RunAdapte
         "Initial feature",
     )
     git(repository, "mv", original, "src/fitness/features/orders/new.py")
-    assert json.loads(run_adapter(repository).stdout) == []
+    assert adapter_module.findings(repository) == []
 
 
 def test_both_commit_policies_report_in_order(repository: Path, run_adapter: RunAdapter):

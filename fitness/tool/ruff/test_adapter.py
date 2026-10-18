@@ -1,7 +1,9 @@
 import json
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
 from subprocess import CompletedProcess
+from types import ModuleType
 
 import pytest
 from pydantic import JsonValue
@@ -9,28 +11,105 @@ from pydantic import JsonValue
 RunAdapter = Callable[[str | Path], CompletedProcess[str]]
 RunSelected = Callable[[Path, list[str] | None], CompletedProcess[str]]
 RunConfigured = Callable[[Path, dict[str, JsonValue]], CompletedProcess[str]]
+Batch = tuple[Path, dict[str, str]]
+RunBatch = Callable[[dict[str, str], dict[str, JsonValue]], Batch]
+
+pytestmark = pytest.mark.xdist_group("ruff_native_examples")
+
+BANNED_EXAMPLES = [
+    "import dataclasses\n",
+    "from dataclasses import dataclass\n",
+    "from pydantic.dataclasses import dataclass\n",
+    "from pydantic import dataclasses\n",
+]
+SUPPRESSION_EXAMPLES: list[tuple[str, list[str]]] = [
+    ("# noqa", ["PGH004"]),
+    ("# noqa: F401", []),
+    ("# ruff: noqa", ["PGH004"]),
+]
 
 
-def test_reports_offender(tmp_path: Path, run_adapter: RunAdapter):
-    path = tmp_path / "bad.py"
+@pytest.fixture(scope="module")
+def default_examples(run_adapter_batch: RunBatch) -> Batch:
+    return run_adapter_batch(
+        {"bad.py": "import os\n", "clean.py": "value: int = 1\n"},
+        {"config": {}, "selections": [{"rules": None, "config": {}}]},
+    )
+
+
+@pytest.fixture(scope="module")
+def suppression_examples(run_adapter_batch: RunBatch) -> Batch:
+    return run_adapter_batch(
+        {
+            f"{index}.py": (
+                f"{comment}\nimport os\n" if "ruff:" in comment else f"import os  {comment}\n"
+            )
+            for index, (comment, _) in enumerate(SUPPRESSION_EXAMPLES)
+        },
+        {"config": {}, "selections": [{"rules": ["PGH004"], "config": {}}]},
+    )
+
+
+@pytest.fixture(scope="module")
+def banned_examples(run_adapter_batch: RunBatch) -> Batch:
+    return run_adapter_batch(
+        {f"{index}.py": source for index, source in enumerate(BANNED_EXAMPLES)},
+        {
+            "config": {},
+            "selections": [
+                {
+                    "rules": ["TID251"],
+                    "config": {
+                        "flake8-tidy-imports": {
+                            "banned-api": {
+                                "dataclasses": {"msg": "Use Pydantic BaseModel."},
+                                "pydantic.dataclasses": {"msg": "Use Pydantic BaseModel."},
+                            }
+                        }
+                    },
+                }
+            ],
+        },
+    )
+
+
+@pytest.fixture(scope="module")
+def prefix_diagnostics(tmp_path_factory: pytest.TempPathFactory, adapter_module: ModuleType):
+    """Scan once; selector attribution is adapter policy, not a new native scan."""
+    path = tmp_path_factory.mktemp("ruff-selectors") / "example.py"
     path.write_text("import os\n")
-    result = run_adapter(path)
-    assert result.returncode == 0, result.stderr
-    findings = json.loads(result.stdout)
+    selectors = ["F", "F4", "F401"]
+    result = subprocess.run(
+        [
+            "ruff",
+            "check",
+            "--output-format",
+            "json",
+            *adapter_module._selection_flags(selectors, [selectors]),
+            str(path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1, result.stderr
+    assert [item["code"] for item in json.loads(result.stdout)] == ["F401"]
+    return result
+
+
+def test_reports_offender(default_examples: Batch):
+    root, results = default_examples
+    findings = json.loads(results["bad.py"])
     assert len(findings) == 1
     assert findings[0]["tool"] == "ruff"
     assert findings[0]["rule_id"] == "F401"
     assert "F401" in findings[0]["tool_message"]
-    assert Path(findings[0]["filename"]).resolve() == path
+    assert Path(findings[0]["filename"]).resolve() == root / "bad.py"
     assert findings[0]["location"]["row"] == 1
 
 
-def test_clean_file(tmp_path: Path, run_adapter: RunAdapter):
-    path = tmp_path / "clean.py"
-    path.write_text("value: int = 1\n")
-    result = run_adapter(path)
-    assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout) == []
+def test_clean_file(default_examples: Batch):
+    assert json.loads(default_examples[1]["clean.py"]) == []
 
 
 def test_command_error(run_adapter: RunAdapter):
@@ -42,16 +121,11 @@ def test_command_error(run_adapter: RunAdapter):
 
 @pytest.mark.parametrize(
     ("comment", "expected"),
-    [("# noqa", ["PGH004"]), ("# noqa: F401", []), ("# ruff: noqa", ["PGH004"])],
+    SUPPRESSION_EXAMPLES,
 )
-def test_blanket_suppressions_only(
-    tmp_path: Path, run_selected_adapter: RunSelected, comment: str, expected: list[str]
-):
-    path = tmp_path / "example.py"
-    path.write_text(f"{comment}\nimport os\n" if "ruff:" in comment else f"import os  {comment}\n")
-    result = run_selected_adapter(path, ["PGH004"])
-    assert result.returncode == 0, result.stderr
-    assert [f["rule_id"] for f in json.loads(result.stdout)] == expected
+def test_blanket_suppressions_only(suppression_examples: Batch, comment: str, expected: list[str]):
+    index = SUPPRESSION_EXAMPLES.index((comment, expected))
+    assert [f["rule_id"] for f in json.loads(suppression_examples[1][f"{index}.py"])] == expected
 
 
 def test_native_selection_excludes_other_rules(tmp_path: Path, run_selected_adapter: RunSelected):
@@ -72,13 +146,16 @@ def test_native_selection_excludes_other_rules(tmp_path: Path, run_selected_adap
     ],
 )
 def test_most_specific_selector_wins(
-    tmp_path: Path, run_selected_adapter: RunSelected, selectors: list[str], expected: str
+    adapter_module: ModuleType,
+    prefix_diagnostics: CompletedProcess[str],
+    selectors: list[str],
+    expected: str,
 ):
-    path = tmp_path / "example.py"
-    path.write_text("import os\n")
-    result = run_selected_adapter(path, selectors)
-    assert result.returncode == 0, result.stderr
-    findings = json.loads(result.stdout)
+    assert adapter_module._selection_flags(selectors, [selectors]) == [
+        "--select",
+        ",".join(selectors),
+    ]
+    findings = adapter_module._normalize_findings(prefix_diagnostics, selectors)
     assert [f["rule_id"] for f in findings] == [expected]
     assert findings[0]["tool_message"].startswith("F401:")
 
@@ -104,39 +181,11 @@ def test_specificity_across_function_selections(
 
 @pytest.mark.parametrize(
     "source",
-    [
-        "import dataclasses\n",
-        "from dataclasses import dataclass\n",
-        "from pydantic.dataclasses import dataclass\n",
-        "from pydantic import dataclasses\n",
-    ],
+    BANNED_EXAMPLES,
 )
-def test_banned_api_configuration(
-    tmp_path: Path, run_configured_adapter: RunConfigured, source: str
-):
-    path = tmp_path / "example.py"
-    path.write_text(source)
-    result = run_configured_adapter(
-        path,
-        {
-            "config": {},
-            "selections": [
-                {
-                    "rules": ["TID251"],
-                    "config": {
-                        "flake8-tidy-imports": {
-                            "banned-api": {
-                                "dataclasses": {"msg": "Use Pydantic BaseModel."},
-                                "pydantic.dataclasses": {"msg": "Use Pydantic BaseModel."},
-                            }
-                        }
-                    },
-                }
-            ],
-        },
-    )
-    assert result.returncode == 0, result.stderr
-    findings = json.loads(result.stdout)
+def test_banned_api_configuration(banned_examples: Batch, source: str):
+    index = BANNED_EXAMPLES.index(source)
+    findings = json.loads(banned_examples[1][f"{index}.py"])
     assert len(findings) == 1
     assert findings[0]["rule_id"] == "TID251"
     assert "Use Pydantic BaseModel." in findings[0]["tool_message"]
