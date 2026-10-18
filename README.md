@@ -65,7 +65,8 @@ Architecture functions live in `rules/architecture.yaml`. The layout adapter's
 `architecture-function-type` rule reports every function there whose type is not
 `architecture`. Other definition files may contain other types.
 
-The commit fitness function checks staged paths: `rules/` and `tool/` may change
+The `type: versioncontrol` function in `rules/versioncontrol.yaml` checks staged
+paths: `rules/` and `tool/` may change
 together, as may `src/` and `tests/`, but one commit cannot mix the two groups.
 Other paths are neutral. Stage a cohesive change, then run `just check` before
 committing. Unstaged changes are ignored; an empty index passes. This checks the

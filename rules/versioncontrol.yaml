@@ -1,0 +1,6 @@
+functions:
+  - title: Separate definition changes from implementation changes
+    type: versioncontrol
+    tool: commits
+    rules: [separate-definition-and-implementation-changes]
+    guidance: Commit rules/tool changes separately from src/tests changes. Each pair may change together.
