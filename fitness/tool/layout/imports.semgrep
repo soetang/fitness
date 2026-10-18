@@ -20,6 +20,8 @@ rules:
       - pattern-either:
           - pattern: importlib.import_module("$MODULE", ...)
           - pattern: __import__("$MODULE", ...)
+          - pattern: importlib.import_module(name="$MODULE", ...)
+          - pattern: __import__(name="$MODULE", ...)
       - metavariable-regex:
           metavariable: $MODULE
           regex: ^[^.]
@@ -30,13 +32,40 @@ rules:
     pattern-either:
       - pattern: importlib.import_module("$MODULE", "$PACKAGE")
       - pattern: importlib.import_module("$MODULE", package="$PACKAGE")
+      - pattern: importlib.import_module(name="$MODULE", package="$PACKAGE")
   - id: feature-access
     languages: [python]
     severity: INFO
     message: fitness.features.$FEATURE.$MODULE
-    pattern: fitness.features.$FEATURE.$MODULE
+    patterns:
+      - pattern: $ROOT.features.$FEATURE.$MODULE
+      - pattern-inside: |
+          import fitness
+          ...
+      - metavariable-regex:
+          metavariable: $ROOT
+          regex: ^fitness$
+      - pattern-not-inside: |
+          def $FUNC(..., $ROOT, ...):
+              ...
+      - pattern-not-inside: |
+          $ROOT = ...
+          ...
   - id: feature-package-access
     languages: [python]
     severity: INFO
     message: fitness.features.$FEATURE
-    pattern: fitness.features.$FEATURE
+    patterns:
+      - pattern: $ROOT.features.$FEATURE
+      - pattern-inside: |
+          import fitness
+          ...
+      - metavariable-regex:
+          metavariable: $ROOT
+          regex: ^fitness$
+      - pattern-not-inside: |
+          def $FUNC(..., $ROOT, ...):
+              ...
+      - pattern-not-inside: |
+          $ROOT = ...
+          ...

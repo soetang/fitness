@@ -57,6 +57,7 @@ def python_files(root: Path) -> list[Path]:
 
 
 def scan_imports(root: Path, source_only: bool = False) -> dict[Path, list[tuple[str, int]]]:
+    root = root.resolve()
     paths = python_files(root / "src" if source_only else root)
     if not paths:
         return {}
@@ -98,7 +99,9 @@ def scan_imports(root: Path, source_only: bool = False) -> dict[Path, list[tuple
     if process.returncode:
         raise ValueError(f"Semgrep exited {process.returncode}: {process.stderr or process.stdout}")
     scan = ScanResult.model_validate_json(process.stdout)
-    if scan.errors or set(map(Path, scan.paths.scanned)) != set(paths):
+    if scan.errors:
+        raise ValueError(f"Semgrep analysis errors: {scan.errors}")
+    if set(map(Path, scan.paths.scanned)) != set(paths):
         raise ValueError("Semgrep did not completely analyze the requested Python files")
     references: dict[Path, list[tuple[str, int]]] = {path: [] for path in paths}
     source_bytes: dict[str, bytes] = {}

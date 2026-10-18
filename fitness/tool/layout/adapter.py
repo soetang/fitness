@@ -37,6 +37,7 @@ class Request(Settings):
 
 
 def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
+    root = root.resolve()
     results: list[dict[str, str]] = []
     configurations: dict[str, dict[str, JsonValue]] = {}
     for selection in request.selections:

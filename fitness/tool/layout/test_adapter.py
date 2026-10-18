@@ -7,7 +7,6 @@ from types import ModuleType
 from typing import cast
 
 import pytest
-import tiktoken
 from pydantic import JsonValue
 
 RunConfiguredAdapter = Callable[[Path, dict[str, JsonValue]], subprocess.CompletedProcess[str]]
@@ -159,6 +158,10 @@ FORBIDDEN_IMPORTS = [
     "__import__('fitness.features.orders.execution')",
     "import fitness\nfitness.features.orders.execution.execute()",
     "import fitness as f\nf.features.orders.execution.execute()",
+    "import importlib\nimportlib.import_module(name='fitness.features.orders.execution')",
+    "__import__(name='fitness.features.orders.execution')",
+    "from importlib import import_module as load\n"
+    "load(name='.execution', package='fitness.features.orders')",
 ]
 ALLOWED_IMPORTS = [
     "from fitness.features.orders.contract import get_order",
@@ -167,6 +170,10 @@ ALLOWED_IMPORTS = [
     "import fitness.features.orders.contract\nfitness.features.orders.contract.get_order()",
     "from .execution import execute",
     "from fitness.contracts import Finding",
+    "def run(fitness):\n    return fitness.features.orders.execution()",
+    "import fitness\ndef run(fitness):\n    return fitness.features.orders.execution()",
+    "import fitness as f\ndef run(f):\n    return f.features.orders.execution()",
+    "import fitness\nfitness = object()\nfitness.features.orders.execution()",
 ]
 EXTERNAL_CALLERS = [
     "src/fitness/contracts/__init__.py",
@@ -281,7 +288,9 @@ def test_combined_token_budget_and_deterministic_file_policy(
         "tests/unassociated.txt",
     ]:
         write_file(name, text * 100)
-    count = len(tiktoken.get_encoding("cl100k_base").encode(text, disallowed_special=())) * 5
+    # Fixed cl100k_base fixture: hello, ' world', CRLF, <, |, endo, ft, ext, |, >LF.
+    # Five included files, ten ordinary-text tokens each (including special-token text).
+    count = 50
     associated_files = {"orders": ["tests/shared.txt", "tests/shared.txt"]}
     assert token_findings(tmp_path, count, "cl100k_base", associated_files) == []
     violations = token_findings(tmp_path, count - 1, "cl100k_base", associated_files)
@@ -290,20 +299,30 @@ def test_combined_token_budget_and_deterministic_file_policy(
 
 
 @pytest.mark.parametrize(
-    "config",
+    ("config", "diagnostic"),
     [
-        {"budget": 10, "encoding": "missing"},
-        {"budget": 10, "encoding": "cl100k_base", "associated_files": {"missing": []}},
-        {"budget": 10, "encoding": "cl100k_base", "associated_files": {"orders": ["../*.py"]}},
-        {"budget": 10, "encoding": "cl100k_base", "extra": True},
+        ({"budget": 10, "encoding": "missing"}, "Unknown encoding missing"),
+        (
+            {"budget": 10, "encoding": "cl100k_base", "associated_files": {"missing": []}},
+            "Associated files reference an unknown feature",
+        ),
+        (
+            {"budget": 10, "encoding": "cl100k_base", "associated_files": {"orders": ["../*.py"]}},
+            "Feature file patterns must stay within the repository",
+        ),
+        ({"budget": 10, "encoding": "cl100k_base", "extra": True}, "extra_forbidden"),
     ],
 )
 def test_invalid_token_configuration_is_an_error(
-    tmp_path: Path, write_file: Callable[[str, str], Path], config: dict[str, JsonValue]
+    tmp_path: Path,
+    write_file: Callable[[str, str], Path],
+    config: dict[str, JsonValue],
+    diagnostic: str,
 ):
     write_file("src/fitness/features/orders/contract.py", "")
     result = architecture_results(tmp_path, "feature-token-budget", config)
     assert result.returncode != 0
+    assert diagnostic in result.stderr
     assert result.stdout == ""
 
 
@@ -323,7 +342,11 @@ requires = ["hatchling"]
 dev = ["pytest", "tiktoken"]
 """,
     )
-    write_file("src/example.py", "import yaml\nif TYPE_CHECKING:\n    import typing_extensions\n")
+    write_file(
+        "src/example.py",
+        "import importlib\nimportlib.import_module(name='yaml')\n"
+        "if TYPE_CHECKING:\n    import typing_extensions\n",
+    )
     write_file("tests/test_example.py", "import unused\n")
     result = architecture_results(
         tmp_path,
@@ -360,31 +383,45 @@ def test_unknown_distribution_requires_mapping(
 
 
 @pytest.mark.parametrize(
-    "payload",
+    ("payload", "diagnostic"),
     [
-        {"config": {"unknown": True}},
-        {"selections": [{"rules": None}]},
-        {"selections": [{"rules": ["unknown"]}]},
-        {"selections": [{"rules": ["contract-only-feature-access"], "config": {"unknown": True}}]},
-        {
-            "selections": [
-                {
-                    "rules": ["feature-token-budget"],
-                    "config": {"budget": 100, "encoding": "cl100k_base"},
-                },
-                {
-                    "rules": ["feature-token-budget"],
-                    "config": {"budget": 200, "encoding": "cl100k_base"},
-                },
-            ]
-        },
+        ({"config": {"unknown": True}}, "too_long"),
+        ({"selections": [{"rules": None}]}, "Layout selections require explicit rule IDs"),
+        ({"selections": [{"rules": ["unknown"]}]}, "Unsupported layout rule: unknown"),
+        (
+            {
+                "selections": [
+                    {"rules": ["contract-only-feature-access"], "config": {"unknown": True}}
+                ]
+            },
+            "extra_forbidden",
+        ),
+        (
+            {
+                "selections": [
+                    {
+                        "rules": ["feature-token-budget"],
+                        "config": {"budget": 100, "encoding": "cl100k_base"},
+                    },
+                    {
+                        "rules": ["feature-token-budget"],
+                        "config": {"budget": 200, "encoding": "cl100k_base"},
+                    },
+                ]
+            },
+            "Conflicting configuration for feature-token-budget",
+        ),
     ],
 )
-def test_invalid_requests_fail_without_partial_findings(
-    tmp_path: Path, run_configured_adapter: RunConfiguredAdapter, payload: dict[str, JsonValue]
+def test_invalid_requests_report_the_intended_error(
+    tmp_path: Path,
+    run_configured_adapter: RunConfiguredAdapter,
+    payload: dict[str, JsonValue],
+    diagnostic: str,
 ):
     result = run_configured_adapter(tmp_path, payload)
     assert result.returncode != 0
+    assert diagnostic in result.stderr
     assert result.stdout == ""
 
 
@@ -431,4 +468,45 @@ def test_invalid_python_is_an_evaluation_error(
         },
     )
     assert result.returncode != 0
+    assert "PartialParsing" in result.stderr
     assert result.stdout == ""
+
+
+def test_later_failure_discards_existing_findings(
+    tmp_path: Path,
+    write_file: Callable[[str, str], Path],
+    run_configured_adapter: RunConfiguredAdapter,
+):
+    write_file("src/client.py", "import fitness.features.orders.execution\n")
+    selection: JsonValue = {"rules": ["contract-only-feature-access"]}
+    control = run_configured_adapter(tmp_path, {"selections": [selection]})
+    assert control.returncode == 0, control.stderr
+    assert [f["rule_id"] for f in json.loads(control.stdout)] == ["contract-only-feature-access"]
+    failed = run_configured_adapter(
+        tmp_path,
+        {
+            "selections": [selection, {"rules": ["unknown"]}],
+        },
+    )
+    assert failed.returncode != 0
+    assert "Unsupported layout rule: unknown" in failed.stderr
+    assert failed.stdout == ""
+
+
+def test_relative_repository_path_matches_absolute_path(
+    tmp_path: Path,
+    write_file: Callable[[str, str], Path],
+):
+    write_file("src/client.py", "import fitness.features.orders.execution\n")
+    absolute = architecture_results(tmp_path, "contract-only-feature-access")
+    relative = subprocess.run(
+        [sys.executable, str(Path(__file__).with_name("adapter.py")), tmp_path.name],
+        cwd=tmp_path.parent,
+        text=True,
+        capture_output=True,
+        check=False,
+        input=json.dumps({"selections": [{"rules": ["contract-only-feature-access"]}]}),
+    )
+    assert absolute.returncode == relative.returncode == 0, relative.stderr
+    assert relative.stdout == absolute.stdout
+    assert json.loads(relative.stdout)[0]["rule_id"] == "contract-only-feature-access"

@@ -55,7 +55,13 @@ def test_any_is_disallowed(tmp_path: Path, run_adapter: RunAdapter, source: str,
 
 def test_native_selection(tmp_path: Path, run_selected_adapter: RunSelected):
     path = tmp_path / "example.py"
-    path.write_text('value: int = "wrong"\n')
+    path.write_text('from typing import Any\nother: Any = 1\nvalue: int = "wrong"\n')
+    unfiltered = run_selected_adapter(path, None)
+    assert unfiltered.returncode == 0, unfiltered.stderr
+    assert {f["rule_id"] for f in json.loads(unfiltered.stdout)} == {
+        "explicit-any",
+        "bad-assignment",
+    }
     result = run_selected_adapter(path, ["bad-assignment"])
     assert result.returncode == 0, result.stderr
     assert [f["rule_id"] for f in json.loads(result.stdout)] == ["bad-assignment"]
