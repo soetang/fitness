@@ -4,8 +4,8 @@ import json
 import re
 import sys
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
-from typing import cast
 
 from architecture import (
     contract_findings,
@@ -47,7 +47,15 @@ class Request(Settings):
 
 def findings(root: Path, request: Request) -> list[dict[str, str]]:
     root = root.resolve()
+    configurations = validate_layout_selections(request)
+    imports = analyze_selected_imports(root, set(configurations))
     results: list[dict[str, str]] = []
+    for rule, settings in configurations.items():
+        results.extend(evaluate_layout_selection(root, rule, settings, imports))
+    return results
+
+
+def collect_layout_selections(request: Request) -> dict[str, dict[str, JsonValue]]:
     configurations: dict[str, dict[str, JsonValue]] = {}
     for selection in request.selections:
         if selection.rules is None:
@@ -56,6 +64,10 @@ def findings(root: Path, request: Request) -> list[dict[str, str]]:
             if rule in configurations and configurations[rule] != selection.config:
                 raise ValueError(f"Conflicting configuration for {rule}")
             configurations[rule] = selection.config
+    return configurations
+
+
+def validate_layout_selections(request: Request) -> dict[str, Settings]:
     setting_types: dict[str, type[Settings]] = {
         "source-test-file-length": FileLengthSettings,
         "feature-test-location": Settings,
@@ -68,20 +80,26 @@ def findings(root: Path, request: Request) -> list[dict[str, str]]:
         "fitness-owns-ruff-check": Settings,
     }
     validated: dict[str, Settings] = {}
-    for rule, config in configurations.items():
+    for rule, config in collect_layout_selections(request).items():
         if rule not in setting_types:
             raise ValueError(f"Unsupported layout rule: {rule}")
         validated[rule] = setting_types[rule].model_validate(config)
-    imports = (
+    return validated
+
+
+def analyze_selected_imports(
+    root: Path, selected_rules: set[str]
+) -> dict[Path, list[tuple[str, int]]]:
+    return (
         scan_imports(
             root,
-            source_only=not configurations.keys()
+            source_only=not selected_rules
             & {
                 "contract-only-feature-access",
                 "feature-test-location",
             },
         )
-        if configurations.keys()
+        if selected_rules
         & {
             "contract-only-feature-access",
             "dependency-placement",
@@ -89,43 +107,48 @@ def findings(root: Path, request: Request) -> list[dict[str, str]]:
         }
         else {}
     )
-    for rule, config in validated.items():
-        if rule == "source-test-file-length":
-            file_settings = cast(FileLengthSettings, config)
-            results.extend(file_length_findings(root, file_settings.max_lines))
-        elif rule == "feature-test-location":
-            results.extend(feature_test_findings(root, imports))
-        elif rule == "feature-token-budget":
-            settings = cast(TokenSettings, config)
-            results.extend(token_findings(root, settings.budget, settings.encoding))
-        elif rule == "contract-only-feature-access":
-            results.extend(contract_findings(root, imports))
-        elif rule == "dependency-placement":
-            settings = cast(DependencySettings, config)
-            project_path = root / "pyproject.toml"
-            project = tomllib.loads(project_path.read_text()) if project_path.exists() else {}
-            metadata = project.get("project", {})
-            dependencies = list(metadata.get("dependencies", []))
-            for group in metadata.get("optional-dependencies", {}).values():
-                dependencies.extend(group)
-            results.extend(
-                dependency_findings(
-                    root,
-                    imports,
-                    dependencies,
-                    settings.module_mapping,
-                    project.get("build-system", {}).get("requires", []),
-                )
-            )
-        elif rule == "adapter-test-location":
-            results.extend(adapter_test_findings(root))
-        elif rule == "adapter-folder":
-            results.extend(adapter_folder_findings(root))
-        elif rule == "ruff-config-location":
-            results.extend(ruff_config_findings(root))
-        elif rule == "fitness-owns-ruff-check":
-            results.extend(ruff_check_findings(root))
-    return results
+
+
+def check_runtime_dependency_usage(
+    root: Path, settings: DependencySettings, imports: dict[Path, list[tuple[str, int]]]
+) -> list[dict[str, str]]:
+    project_path = root / "pyproject.toml"
+    project = tomllib.loads(project_path.read_text()) if project_path.exists() else {}
+    metadata = project.get("project", {})
+    dependencies = list(metadata.get("dependencies", []))
+    for group in metadata.get("optional-dependencies", {}).values():
+        dependencies.extend(group)
+    return dependency_findings(
+        root,
+        imports,
+        dependencies,
+        settings.module_mapping,
+        project.get("build-system", {}).get("requires", []),
+    )
+
+
+def evaluate_layout_selection(
+    root: Path, rule: str, settings: Settings, imports: dict[Path, list[tuple[str, int]]]
+) -> list[dict[str, str]]:
+    if isinstance(settings, FileLengthSettings):
+        return file_length_findings(root, settings.max_lines)
+    if isinstance(settings, TokenSettings):
+        return token_findings(root, settings.budget, settings.encoding)
+    if isinstance(settings, DependencySettings):
+        return check_runtime_dependency_usage(root, settings, imports)
+    import_checks = {
+        "feature-test-location": feature_test_findings,
+        "contract-only-feature-access": contract_findings,
+    }
+    if rule in import_checks:
+        return import_checks[rule](root, imports)
+    repository_checks: dict[str, Callable[[Path], list[dict[str, str]]]] = {
+        "adapter-test-location": adapter_test_findings,
+        "adapter-folder": adapter_folder_findings,
+        "ruff-config-location": ruff_config_findings,
+        "fitness-owns-ruff-check": ruff_check_findings,
+    }
+    return repository_checks[rule](root)
 
 
 def adapter_test_findings(root: Path) -> list[dict[str, str]]:

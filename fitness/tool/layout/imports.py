@@ -61,6 +61,11 @@ def scan_imports(root: Path, source_only: bool = False) -> dict[Path, list[tuple
     paths = python_files(root / "src" if source_only else root)
     if not paths:
         return {}
+    scan = analyze_python_imports(root, paths)
+    return collect_import_references(root, paths, scan)
+
+
+def analyze_python_imports(root: Path, paths: list[Path]) -> ScanResult:
     binary = distribution("semgrep").locate_file("semgrep/bin/semgrep-core")
     targets = [
         "Targets",
@@ -103,6 +108,42 @@ def scan_imports(root: Path, source_only: bool = False) -> dict[Path, list[tuple
         raise ValueError(f"Semgrep analysis errors: {scan.errors}")
     if set(map(Path, scan.paths.scanned)) != set(paths):
         raise ValueError("Semgrep did not completely analyze the requested Python files")
+    return scan
+
+
+def is_redundant_feature_access(
+    match: Match, source_bytes: dict[str, bytes], accesses: set[tuple[str, int]]
+) -> bool:
+    if match.check_id in {"feature-access", "feature-package-access"}:
+        if match.path not in source_bytes:
+            source_bytes[match.path] = Path(match.path).read_bytes()
+        expression = source_bytes[match.path][match.start.offset : match.end.offset]
+        # Alias-only expressions are already covered by their import facts.
+        # Semgrep's substituted metavariables can retain the local alias text.
+        if expression.count(b".") < (3 if match.check_id == "feature-access" else 2):
+            return True
+    return (
+        match.check_id == "feature-package-access" and (match.path, match.start.offset) in accesses
+    )
+
+
+def resolve_import_reference(root: Path, match: Match) -> tuple[str, int]:
+    parts = list(Path(match.path).relative_to(root).with_suffix("").parts)
+    if parts[0] == "src":
+        parts.pop(0)
+    package = ".".join(parts[:-1])
+    module = match.extra.message
+    if match.check_id == "from-import":
+        module, symbol = module.split("|", 1)
+        module = importlib.util.resolve_name(module, package) + "." + symbol
+    elif match.check_id == "relative-dynamic-import":
+        package, module = module.split("|", 1)
+    return importlib.util.resolve_name(module, package), match.start.line
+
+
+def collect_import_references(
+    root: Path, paths: list[Path], scan: ScanResult
+) -> dict[Path, list[tuple[str, int]]]:
     references: dict[Path, list[tuple[str, int]]] = {path: [] for path in paths}
     source_bytes: dict[str, bytes] = {}
     accesses = {
@@ -111,30 +152,7 @@ def scan_imports(root: Path, source_only: bool = False) -> dict[Path, list[tuple
         if match.check_id == "feature-access"
     }
     for match in scan.results:
-        if match.check_id in {"feature-access", "feature-package-access"}:
-            if match.path not in source_bytes:
-                source_bytes[match.path] = Path(match.path).read_bytes()
-            expression = source_bytes[match.path][match.start.offset : match.end.offset]
-            # Alias-only expressions are already covered by their import facts.
-            # Semgrep's substituted metavariables can retain the local alias text.
-            if expression.count(b".") < (3 if match.check_id == "feature-access" else 2):
-                continue
-        if (
-            match.check_id == "feature-package-access"
-            and (match.path, match.start.offset) in accesses
-        ):
+        if is_redundant_feature_access(match, source_bytes, accesses):
             continue
-        path = Path(match.path)
-        parts = list(path.relative_to(root).with_suffix("").parts)
-        if parts[0] == "src":
-            parts.pop(0)
-        package = ".".join(parts[:-1])
-        module = match.extra.message
-        if match.check_id == "from-import":
-            module, symbol = module.split("|", 1)
-            module = importlib.util.resolve_name(module, package) + "." + symbol
-        elif match.check_id == "relative-dynamic-import":
-            package, module = module.split("|", 1)
-        module = importlib.util.resolve_name(module, package)
-        references[path].append((module, match.start.line))
+        references[Path(match.path)].append(resolve_import_reference(root, match))
     return references
