@@ -1,0 +1,9 @@
+tools:
+  ruff:
+    command: [uv, run, --no-sync, python, tool/ruff/adapter.py]
+    send_input: true
+  pyrefly:
+    command: [uv, run, --no-sync, python, tool/pyrefly/adapter.py]
+    send_input: true
+  layout:
+    command: [uv, run, --no-sync, python, tool/layout/adapter.py]

@@ -1,0 +1,14 @@
+functions:
+  - title: Keep Python code free of lint diagnostics
+    type: lint
+    tool: ruff
+    guidance: Fix the reported Ruff diagnostic; use just fmt for automatic fixes.
+  - title: Keep Python code type-correct
+    type: typing
+    tool: pyrefly
+    guidance: Correct the reported type mismatch rather than suppressing it.
+  - title: Use only rule-specific lint suppressions
+    type: maintainability
+    tool: ruff
+    rules: [PGH004]
+    guidance: Specify the rule ID in noqa directives instead of suppressing all diagnostics.

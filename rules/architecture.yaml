@@ -1,0 +1,16 @@
+functions:
+  - title: Keep adapter tests beside their adapters
+    type: architecture
+    tool: layout
+    rules: [adapter-test-location]
+    guidance: Move adapter tests into tool/<name>/ beside adapter.py.
+  - title: Give each adapter its own folder and tests
+    type: architecture
+    tool: layout
+    rules: [adapter-folder]
+    guidance: Use tool/<name>/adapter.py and colocated test_*.py modules.
+  - title: Keep architecture definitions architecture-only
+    type: architecture
+    tool: layout
+    rules: [architecture-function-type]
+    guidance: Only functions with type architecture belong in rules/architecture.yaml.
