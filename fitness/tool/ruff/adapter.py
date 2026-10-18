@@ -1,10 +1,14 @@
 """Translate configured Ruff diagnostics into individual Fitness findings."""
 
+from __future__ import annotations
+
 import json
 import subprocess
 import sys
+from typing import TYPE_CHECKING
 
-from pydantic import JsonValue
+if TYPE_CHECKING:
+    from pydantic import JsonValue
 
 
 def overrides(config: dict[str, JsonValue], prefix: tuple[str, ...] = ()) -> dict[str, str]:

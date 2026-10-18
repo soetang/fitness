@@ -104,32 +104,22 @@ def _violates_feature_boundary(module: str, own_feature: str | None, shared: boo
 
 
 def token_findings(root: Path, budget: int, encoding_name: str) -> list[dict[str, str]]:
-    encoding = tiktoken.get_encoding(encoding_name)
+    if encoding_name not in tiktoken.list_encoding_names():
+        tiktoken.get_encoding(encoding_name)
     features_root = root / "src/fitness/features"
     features = (
-        sorted(path for path in features_root.iterdir() if path.is_dir())
+        sorted(
+            path
+            for path in features_root.iterdir()
+            if path.is_dir() and not path.name.startswith(("_", ".")) and not path.is_symlink()
+        )
         if (features_root.is_dir())
         else []
     )
     results = []
     for feature in features:
-        if feature.name.startswith(("_", ".")) or feature.is_symlink():
-            continue
-        paths = (
-            path
-            for path in feature.rglob("*")
-            if path.is_file()
-            and not any(parent.is_symlink() for parent in (path, *path.parents) if parent != root)
-            and not any(
-                part.startswith(".") or part == "__pycache__"
-                for part in path.relative_to(root).parts
-            )
-            and path.suffix in {".py", ".md", ".yaml", ".yml", ".json", ".toml", ".txt"}
-        )
-        count = sum(
-            len(encoding.encode(path.read_bytes().decode("utf-8"), disallowed_special=()))
-            for path in sorted(paths)
-        )
+        paths = _feature_content_paths(root, feature)
+        count = _token_count_when_over_budget(paths, budget, encoding_name)
         if count > budget:
             results.append(
                 report(
@@ -139,6 +129,31 @@ def token_findings(root: Path, budget: int, encoding_name: str) -> list[dict[str
                 )
             )
     return results
+
+
+def _feature_content_paths(root: Path, feature: Path) -> list[Path]:
+    """Select feature content without following symlinks or generated directories."""
+    return [
+        path
+        for path in feature.rglob("*")
+        if path.is_file()
+        and not any(parent.is_symlink() for parent in (path, *path.parents) if parent != root)
+        and not any(
+            part.startswith(".") or part == "__pycache__" for part in path.relative_to(root).parts
+        )
+        and path.suffix in {".py", ".md", ".yaml", ".yml", ".json", ".toml", ".txt"}
+    ]
+
+
+def _token_count_when_over_budget(paths: list[Path], budget: int, encoding_name: str) -> int:
+    """Avoid tokenizer initialization when UTF-8 bytes already prove the budget fits."""
+    contents = [path.read_bytes().decode("utf-8") for path in sorted(paths)]
+    # Each ordinary-text token consumes at least one UTF-8 byte. Decode first so
+    # the shortcut cannot hide invalid UTF-8, and retain per-file tokenization.
+    if sum(len(text.encode("utf-8")) for text in contents) <= budget:
+        return 0
+    encoding = tiktoken.get_encoding(encoding_name)
+    return sum(len(encoding.encode(text, disallowed_special=())) for text in contents)
 
 
 def dependency_findings(

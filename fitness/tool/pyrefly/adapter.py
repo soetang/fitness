@@ -1,10 +1,14 @@
 """Translate configured Pyrefly diagnostics into individual Fitness findings."""
 
+from __future__ import annotations
+
 import json
 import subprocess
 import sys
+from typing import TYPE_CHECKING
 
-from pydantic import JsonValue
+if TYPE_CHECKING:
+    from pydantic import JsonValue
 
 
 def _selection_flags(selections: list[list[str] | None]) -> list[str]:
