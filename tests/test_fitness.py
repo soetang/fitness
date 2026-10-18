@@ -222,20 +222,18 @@ functions:
 
 
 @pytest.mark.parametrize(
-    ("matching", "first", "second", "counts", "warning_count"),
+    ("first", "second", "counts", "warning_count"),
     [
-        ("prefix", "[F]", "[F401]", [1, 1], 1),
-        ("prefix", "[F401]", "[F]", [1, 1], 1),
-        ("prefix", "[E]", "[F401]", [0, 1], 0),
-        ("exact", "[F]", "[F401]", [0, 1], 0),
-        ("prefix", "[F, F401]", "[E]", [1, 0], 0),
-        ("prefix", "[F]", "null", [1, 1], 1),
-        ("prefix", "null", "null", [1, 1], 1),
+        ("[F]", "[F401]", [0, 1], 0),
+        ("[F401]", "[F]", [1, 0], 0),
+        ("[E]", "[F401]", [0, 1], 0),
+        ("[F, F401]", "[E]", [1, 0], 0),
+        ("[F]", "null", [0, 1], 1),
+        ("null", "null", [1, 1], 1),
     ],
 )
-def test_rule_selector_matching(
+def test_core_matches_reported_rule_id_exactly(
     write_definitions: Callable[[str], Path],
-    matching: str,
     first: str,
     second: str,
     counts: list[int],
@@ -244,7 +242,7 @@ def test_rule_selector_matching(
     suite = load(
         write_definitions(f"""
 tools:
-  example: {{command: [example], rule_matching: {matching}}}
+  example: {{command: [example]}}
 functions:
   - {{title: First, type: test, tool: example, rules: {first}}}
   - {{title: Second, type: test, tool: example, rules: {second}}}

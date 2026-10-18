@@ -73,15 +73,11 @@ def load(path: Path) -> Suite:
         if function.tool and function.tool not in tools:
             raise FitnessError(f"{definition.source}: unknown tool {function.tool!r}")
     warnings = []
-    for name, tool in tools.items():
+    for name in tools:
         automated = [d for d in definitions if d.function.tool == name]
         for left, right in combinations(automated, 2):
             a, b = left.function.rules, right.function.rules
-            if (
-                a is None
-                or b is None
-                or any(tool.matches(x, y) or tool.matches(y, x) for x in a for y in b)
-            ):
+            if a is None or b is None or set(a).intersection(b):
                 warnings.append(
                     f"{name}: {left.source} and {right.source} overlap; "
                     "shared findings count toward each function"
@@ -152,12 +148,7 @@ def evaluate(suite: Suite, runner: Runner, type_: str | None = None) -> list[Res
                 f
                 for f in findings
                 if f.tool == d.function.tool
-                and (
-                    d.function.rules is None
-                    or any(
-                        suite.tools[f.tool].matches(f.rule_id, rule) for rule in d.function.rules
-                    )
-                )
+                and (d.function.rules is None or f.rule_id in d.function.rules)
             ],
         )
         for d in selected
