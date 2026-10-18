@@ -1,0 +1,6 @@
+functions:
+  - title: Keep architecture definitions architecture-only
+    type: meta
+    tool: layout
+    rules: [architecture-function-type]
+    guidance: Only functions with type architecture belong in rules/architecture.yaml.

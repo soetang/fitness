@@ -72,7 +72,9 @@ allowed. Pyrefly enables both `explicit-any` and `implicit-any` checks, includin
 tests and adapters. Pyrefly uses exact IDs in explicit selections. General Ruff
 and Pyrefly functions omit guidance and rely on their native tool messages.
 
-Architecture functions live in `rules/architecture.yaml`. The layout adapter's
+Architecture functions live in `rules/architecture.yaml`. Functions about the
+definitions themselves live in `rules/meta.yaml` with `type: meta`.
+The layout adapter's
 `architecture-function-type` rule reports every function there whose type is not
 `architecture`. Other definition files may contain other types.
 The Pydantic-model function uses Ruff `TID251` with its `banned-api` configuration

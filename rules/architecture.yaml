@@ -9,11 +9,6 @@ functions:
     tool: layout
     rules: [adapter-folder]
     guidance: Use tool/<name>/adapter.py and colocated test_*.py modules.
-  - title: Keep architecture definitions architecture-only
-    type: architecture
-    tool: layout
-    rules: [architecture-function-type]
-    guidance: Only functions with type architecture belong in rules/architecture.yaml.
   - title: Use Pydantic models instead of dataclasses
     type: architecture
     tool: ruff

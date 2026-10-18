@@ -18,6 +18,8 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
   `rules/architecture.yaml` supplies the banned-api settings to Ruff.
 - `rules/architecture.yaml` may contain only fitness functions with
   `type: architecture`; the layout adapter enforces this project-specific rule.
+- Put fitness functions about definition organization and conventions in
+  `rules/meta.yaml` with `type: meta`, including the architecture-only constraint.
 - Reference native diagnostic IDs or supported selectors in `rules`. Omit `rules` to count every
   diagnostic from a tool's configured checks; an empty list is invalid.
 - Keep this project's Ruff selection in the YAML fitness functions, not in
