@@ -8,10 +8,10 @@ setup:
     uv sync --locked
 
 test:
-    uv run pytest
+    @if output="$(uv run pytest 2>&1)"; then echo success; else status=$?; printf '%s\n' "$output"; exit "$status"; fi
 
 lint: _runner-ready
-    "{{fitness_cli}}" lint --verbose
+    "{{fitness_cli}}" lint
     uv run ruff format --config "$(uv run python fitness/tool/ruff/format_config.py)" --check .
 
 fitness: _runner-ready

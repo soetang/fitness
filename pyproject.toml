@@ -27,7 +27,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "fitness/tool"]
-addopts = "--import-mode=importlib --cov=src/fitness --cov-branch --cov-report=term-missing --cov-fail-under=100"
+addopts = "-qq --no-header --tb=short --import-mode=importlib --cov --cov-report="
 
 [tool.coverage.run]
 source = ["src/fitness"]

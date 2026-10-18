@@ -12,11 +12,16 @@ Shared example definitions, findings, and an executable integration live in
 Initialize the retained runner once with `just update-runner` before `just check`.
 `just check` is the recipe list `test lint fitness`: tests, definition linting
 and formatting checks, then fitness evaluation. Tests enforce **100% line and branch
-coverage** of `src/fitness`; missing coverage fails the run. Without just, run:
+coverage** of `src/fitness`; missing coverage fails the run.
+`just test` prints only `success` on a passing run, and displays pytest diagnostics
+on failure while preserving its exit code. Pytest uses short tracebacks and omits
+the session header and coverage table; the coverage threshold remains enforced.
+
+Without just, run:
 
 ```sh
 uv run pytest
-.fitness-runner/bin/fitness lint --verbose
+.fitness-runner/bin/fitness lint
 uv run ruff format --config "$(uv run python fitness/tool/ruff/format_config.py)" --check .
 .fitness-runner/bin/fitness check
 ```
