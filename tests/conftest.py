@@ -27,7 +27,7 @@ def findings_json():
 def write_definitions(tmp_path: Path):
     def write(text: str):
         path = tmp_path / "functions.yaml"
-        path.write_text(text)
+        path.write_text(text + "\ndescription: Test fitness functions.\n")
         return path
 
     return write

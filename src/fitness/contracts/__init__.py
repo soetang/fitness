@@ -36,6 +36,7 @@ class Function(Model):
 
 
 class Document(Model):
+    description: Text
     tools: dict[Text, Tool] = Field(default_factory=dict)
     functions: list[Function] = Field(default_factory=list)
 

@@ -9,6 +9,7 @@ Fitness itself, see [Contributing](contributing.md).
 `--type` filters check execution by function type.
 
 ```yaml
+description: Expectations for the quality of documentation links.
 tools:
   links:
     command: [python, integrations/links.py]
@@ -21,6 +22,11 @@ functions:
     limit: 0
     guidance: Update or remove broken links.
 ```
+
+Every YAML document requires a nonempty `description` explaining its scope,
+including documents that only define tools. Files may group functions by subject
+and contain multiple types. Descriptions are metadata; they do not affect selection
+or execution and are not sent to adapters.
 
 Functions require `title` and `type`. Omit `tool` for manual expectations; omit
 `rules` to count all findings from a tool. `limit` defaults to zero. Optional

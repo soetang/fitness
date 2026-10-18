@@ -4,3 +4,4 @@ tools:
     send_input: true
     config:
       preview: true
+description: Commands used by the example fitness functions.

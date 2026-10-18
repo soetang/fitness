@@ -12,3 +12,4 @@ functions:
   - title: Keep features independent
     type: architecture
     guidance: Communicate through public interfaces.
+description: Example API expectations with automated and manual checks.

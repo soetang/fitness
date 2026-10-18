@@ -9,6 +9,7 @@ the core maps reported `tool` + `rule_id` values exactly.
 Register its command in `fitness/tool.yaml`:
 
 ```yaml
+description: Commands for evaluating this project's fitness functions.
 tools:
   example:
     command: [python, tools/example.py]

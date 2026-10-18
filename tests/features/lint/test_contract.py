@@ -33,6 +33,7 @@ def test_invalid_fitness_functions(
     [
         ("? [invalid, key]\n: value", "YAML mapping keys must be scalar"),
         (
+            "description: Test tool settings.\n"
             "tools: {example: {command: [example], config: {date: 2026-10-18}}}",
             "invalid-json-value",
         ),
@@ -40,11 +41,53 @@ def test_invalid_fitness_functions(
         ("", "model_type"),
     ],
 )
-def test_invalid_documents(
-    write_definitions: Callable[[str], Path], document: str, diagnostic: str
-):
+def test_invalid_documents(tmp_path: Path, document: str, diagnostic: str):
+    path = tmp_path / "functions.yaml"
+    path.write_text(document)
     with pytest.raises(FitnessError, match=diagnostic):
-        lint_fitness_functions(write_definitions(document))
+        lint_fitness_functions(path)
+
+
+@pytest.mark.parametrize(
+    ("document", "diagnostic"),
+    [
+        ("functions: []", "missing"),
+        ("tools: {}", "missing"),
+        ('description: ""', "string_too_short"),
+        ('description: "  "', "string_too_short"),
+        ("description: null", "string_type"),
+        ("description: 7", "string_type"),
+    ],
+)
+def test_every_document_requires_a_nonempty_description(
+    tmp_path: Path, document: str, diagnostic: str
+):
+    path = tmp_path / "functions.yaml"
+    path.write_text(document)
+    with pytest.raises(FitnessError, match=rf"(?s)description.*{diagnostic}"):
+        lint_fitness_functions(path)
+
+
+def test_descriptions_allow_mixed_function_types_and_arbitrary_filenames(tmp_path: Path):
+    (tmp_path / "subject.yaml").write_text("""
+description: Expectations for one subject, across multiple classifications.
+functions:
+  - {title: Structure, type: architecture}
+  - {title: Quality, type: lint}
+""")
+    (tmp_path / "commands.yaml").write_text("description: Tool configuration.\ntools: {}\n")
+    fitness_functions = lint_fitness_functions(tmp_path)
+    assert [f.function.type for f in fitness_functions.fitness_functions] == [
+        "architecture",
+        "lint",
+    ]
+
+
+def test_description_is_required_in_each_loaded_file(tmp_path: Path):
+    (tmp_path / "a.yaml").write_text("description: Described file.\nfunctions: []\n")
+    (tmp_path / "b.yaml").write_text("functions: []\n")
+    with pytest.raises(FitnessError, match=r"(?s)b.yaml.*description.*missing"):
+        lint_fitness_functions(tmp_path)
 
 
 def test_omitted_rules_are_valid(write_definitions: Callable[[str], Path]):
@@ -59,7 +102,9 @@ def test_omitted_rules_are_valid(write_definitions: Callable[[str], Path]):
 
 def test_duplicate_tools(tmp_path: Path):
     for name in ["a.yaml", "b.yaml"]:
-        (tmp_path / name).write_text("tools: {example: {command: [example]}}")
+        (tmp_path / name).write_text(
+            "description: Duplicate tool fixture.\ntools: {example: {command: [example]}}"
+        )
     with pytest.raises(FitnessError, match="duplicate tool"):
         lint_fitness_functions(tmp_path)
 
