@@ -48,14 +48,19 @@ Adapters use `uv run --no-sync` to access the project's development environment;
 they do not import Fitness. Ruff checks the repository, and Pyrefly checks
 `src/`, `tests/`, and `tool/`.
 
-Ruff and Pyrefly findings preserve native rule IDs (`F401`, `bad-assignment`, etc.).
+Pyrefly findings use native rule IDs. Ruff findings use the most-specific requested
+selector and retain the concrete native code in the message.
 The general Ruff function uses `rules: [E, F, I, UP, SIM]` in
 `rules/package.yaml`; `PGH004` and `TID251` live in dedicated functions. Ruff rule
-selection is defined in YAML, not `pyproject.toml`. Ruff declares
-`rule_matching: prefix`, so `F` matches `F401` while preserving the native ID.
-Other tools default to `rule_matching: exact`. Lint warns about overlapping
-selectors across functions; overlapping selectors within one function never
-double-count a finding.
+selection is defined in YAML, not `pyproject.toml`. The Ruff adapter selects the
+longest matching selector across the selected invocation: `F401` wins over `F4`,
+which wins over `F` (`ALL` is least specific). It emits one finding with that
+selector as `rule_id` and `F401: ...` in the message. A dedicated `F401` function
+therefore receives that finding instead of the broader `F` function. When rules
+are omitted and no explicit selector matches, the adapter reports the native ID.
+The core always matches reported IDs exactly; there is no matching-mode field.
+Lint warns about identical references and all-diagnostic functions, without
+interpreting tool-specific selectors.
 `just fmt` reads the package's Ruff rule IDs from that same YAML for automatic
 lint fixes, then runs Ruff's formatter.
 Their adapters receive selections over JSON stdin. Explicit IDs select native
@@ -131,7 +136,7 @@ With `send_input: true`, stdin receives JSON:
 
 Top-level config is invocation-wide; each selection preserves function-specific
 settings. Omitted rules are transmitted as `"rules": null`. Explicit lists filter
-findings using the tool's exact/prefix matching mode. All-diagnostic functions overlap with every
+findings by exact reported rule ID. All-diagnostic functions overlap with every
 explicit selection for the same tool, so lint warns about shared counts.
 Integrations own native configuration interpretation, conflict detection,
 and compatible batching. No function metadata is sent. Config is ignored when

@@ -13,6 +13,7 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
   Layout fitness functions enforce colocated tests and detect adapter-named
   tests misplaced under `tests/`.
 - Keep tool-specific behavior in integrations, not in the core.
+- Discuss data-model and integration-contract changes with the user before implementing them.
 - Use Pydantic models instead of dataclasses. The `TID251` function in
   `rules/architecture.yaml` supplies the banned-api settings to Ruff.
 - `rules/architecture.yaml` may contain only fitness functions with
@@ -20,8 +21,10 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
 - Reference native diagnostic IDs or supported selectors in `rules`. Omit `rules` to count every
   diagnostic from a tool's configured checks; an empty list is invalid.
 - Keep this project's Ruff selection in the YAML fitness functions, not in
-  `pyproject.toml`. Ruff opts into `rule_matching: prefix` so `E`, `F`, and `I`
-  select entire rule families. Other tools default to exact matching.
+  `pyproject.toml`. The Ruff adapter interprets family selectors and reports the
+  most-specific requested selector as `rule_id`, keeping the native code in the
+  message. Specificity applies across the selected invocation; the core always
+  matches the reported ID exactly.
   The general lint function uses selectors without duplicating
   rules assigned to dedicated functions.
 - Omit guidance for general Ruff and Pyrefly functions; native messages suffice.

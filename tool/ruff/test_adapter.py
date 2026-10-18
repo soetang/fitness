@@ -62,10 +62,42 @@ def test_native_selection_excludes_other_rules(tmp_path: Path, run_selected_adap
     assert json.loads(result.stdout) == []
 
 
-def test_prefix_selection_preserves_native_id(tmp_path: Path, run_selected_adapter: RunSelected):
+@pytest.mark.parametrize(
+    ("selectors", "expected"),
+    [
+        (["F"], "F"),
+        (["F", "F4"], "F4"),
+        (["F", "F4", "F401"], "F401"),
+        (["F401", "F4", "F"], "F401"),
+    ],
+)
+def test_most_specific_selector_wins(
+    tmp_path: Path, run_selected_adapter: RunSelected, selectors: list[str], expected: str
+):
     path = tmp_path / "example.py"
     path.write_text("import os\n")
-    result = run_selected_adapter(path, ["F"])
+    result = run_selected_adapter(path, selectors)
+    assert result.returncode == 0, result.stderr
+    findings = json.loads(result.stdout)
+    assert [f["rule_id"] for f in findings] == [expected]
+    assert findings[0]["tool_message"].startswith("F401:")
+
+
+def test_specificity_across_function_selections(
+    tmp_path: Path, run_configured_adapter: RunConfigured
+):
+    path = tmp_path / "example.py"
+    path.write_text("import os\n")
+    result = run_configured_adapter(
+        path,
+        {
+            "config": {},
+            "selections": [
+                {"rules": ["F"], "config": {}},
+                {"rules": ["F401"], "config": {}},
+            ],
+        },
+    )
     assert result.returncode == 0, result.stderr
     assert [f["rule_id"] for f in json.loads(result.stdout)] == ["F401"]
 

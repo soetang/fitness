@@ -51,7 +51,11 @@ def main() -> None:
     findings = [
         {
             "tool": "ruff",
-            "rule_id": item["code"],
+            "rule_id": max(
+                (rule for rule in rules if rule == "ALL" or item["code"].startswith(rule)),
+                key=lambda rule: 0 if rule == "ALL" else len(rule),
+                default=item["code"],
+            ),
             "tool_message": f"{item['code']}: {item['message']}",
             "filename": item["filename"],
             "location": item["location"],
