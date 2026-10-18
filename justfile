@@ -1,6 +1,6 @@
 runner_dir := justfile_directory() / ".fitness-runner"
 fitness_cli := runner_dir / "bin/fitness"
-quiet := "sh tool/quiet.sh"
+quiet := "bash tool/quiet.sh"
 
 default:
     @just --list
@@ -9,26 +9,16 @@ setup:
     uv sync --locked
 
 test:
-    @{{quiet}} just _test
+    @{{quiet}} uv run pytest
 
-_test:
-    @{{quiet}} --silent uv run pytest
+lint: _runner-ready
+    @{{quiet}} "{{fitness_cli}}" lint ::: just _format --check
 
-lint:
-    @{{quiet}} just _lint
-
-_lint: _runner-ready
-    @{{quiet}} --silent "{{fitness_cli}}" lint
-    @{{quiet}} --silent just _format --check
-
-fitness:
-    @{{quiet}} just _fitness
-
-_fitness: _runner-ready
-    @{{quiet}} --silent "{{fitness_cli}}" check
+fitness: _runner-ready
+    @{{quiet}} "{{fitness_cli}}" check
 
 check:
-    @{{quiet}} just _test _lint _fitness
+    @{{quiet}} just test ::: just lint ::: just fitness
 
 fmt:
     @{{quiet}} just _format
