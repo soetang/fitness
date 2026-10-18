@@ -1,8 +1,9 @@
 import json
 import subprocess
-from collections import Counter
+from collections.abc import Callable
+from itertools import combinations
 from pathlib import Path
-from typing import Callable, cast
+from typing import cast
 
 import yaml
 from pydantic import TypeAdapter, ValidationError
@@ -67,21 +68,24 @@ def load(path: Path) -> Suite:
             )
         except (OSError, ValueError, yaml.YAMLError, FitnessError) as error:
             raise FitnessError(f"{file}: {error}") from error
-    references = Counter()
     for definition in definitions:
         function = definition.function
         if function.tool and function.tool not in tools:
             raise FitnessError(f"{definition.source}: unknown tool {function.tool!r}")
-        if function.tool:
-            references.update((function.tool, rule) for rule in function.rules or ["*"])
-    for tool, rule in list(references):
-        if rule != "*":
-            references[tool, rule] += references[tool, "*"]
-    warnings = [
-        f"{tool} / {rule} is shared by {count} functions; findings count toward each"
-        for (tool, rule), count in references.items()
-        if count > 1
-    ]
+    warnings = []
+    for name, tool in tools.items():
+        automated = [d for d in definitions if d.function.tool == name]
+        for left, right in combinations(automated, 2):
+            a, b = left.function.rules, right.function.rules
+            if (
+                a is None
+                or b is None
+                or any(tool.matches(x, y) or tool.matches(y, x) for x in a for y in b)
+            ):
+                warnings.append(
+                    f"{name}: {left.source} and {right.source} overlap; "
+                    "shared findings count toward each function"
+                )
     return Suite(tools=tools, definitions=definitions, warnings=warnings)
 
 
@@ -148,7 +152,12 @@ def evaluate(suite: Suite, runner: Runner, type_: str | None = None) -> list[Res
                 f
                 for f in findings
                 if f.tool == d.function.tool
-                and (d.function.rules is None or f.rule_id in d.function.rules)
+                and (
+                    d.function.rules is None
+                    or any(
+                        suite.tools[f.tool].matches(f.rule_id, rule) for rule in d.function.rules
+                    )
+                )
             ],
         )
         for d in selected

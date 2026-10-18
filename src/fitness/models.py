@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints, model_validator
 
@@ -15,6 +15,12 @@ class Tool(Model):
     command: list[Text] = Field(min_length=1)
     config: dict[str, JsonValue] = Field(default_factory=dict)
     send_input: bool = False
+    rule_matching: Literal["exact", "prefix"] = "exact"
+
+    def matches(self, rule_id: str, selector: str) -> bool:
+        return (
+            rule_id.startswith(selector) if self.rule_matching == "prefix" else rule_id == selector
+        )
 
 
 class Function(Model):

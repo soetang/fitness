@@ -1,7 +1,7 @@
 import json
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import pytest
 from typer.testing import CliRunner
@@ -219,3 +219,38 @@ functions:
 
     assert len(suite.warnings) == 1
     assert [r.status for r in evaluate(suite, runner)] == ["FAIL", "FAIL"]
+
+
+@pytest.mark.parametrize(
+    ("matching", "first", "second", "counts", "warning_count"),
+    [
+        ("prefix", "[F]", "[F401]", [1, 1], 1),
+        ("prefix", "[F401]", "[F]", [1, 1], 1),
+        ("prefix", "[E]", "[F401]", [0, 1], 0),
+        ("exact", "[F]", "[F401]", [0, 1], 0),
+        ("prefix", "[F, F401]", "[E]", [1, 0], 0),
+        ("prefix", "[F]", "null", [1, 1], 1),
+        ("prefix", "null", "null", [1, 1], 1),
+    ],
+)
+def test_rule_selector_matching(
+    write_definitions: Callable[[str], Path],
+    matching: str,
+    first: str,
+    second: str,
+    counts: list[int],
+    warning_count: int,
+):
+    suite = load(
+        write_definitions(f"""
+tools:
+  example: {{command: [example], rule_matching: {matching}}}
+functions:
+  - {{title: First, type: test, tool: example, rules: {first}}}
+  - {{title: Second, type: test, tool: example, rules: {second}}}
+""")
+    )
+    output = '[{"tool":"example", "rule_id":"F401", "tool_message":"Unused import"}]'
+    results = evaluate(suite, lambda command, stdin: output)
+    assert [len(result.findings) for result in results] == counts
+    assert len(suite.warnings) == warning_count
