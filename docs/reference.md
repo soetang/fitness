@@ -9,14 +9,14 @@ Shared example definitions, findings, and an executable integration live in
 `tests/fixtures/`.
 `just setup`, `just test`, `just lint`, `just typecheck`, and `just fmt` support development.
 Initialize the retained runner once with `just update-runner` before `just check`.
-`just check` runs pytest, uses the retained wheel against this package's `rules/`,
+`just check` runs pytest, uses the retained wheel against this package's `fitnessfunctions/`,
 then checks formatting. Tests enforce **100% line and branch
 coverage** of `src/fitness`; missing coverage fails the run. Without just, run:
 
 ```sh
 uv run pytest
-uvx --from ./dist/self-check/fitness-0.1.0-py3-none-any.whl fitness lint --rules rules
-uvx --from ./dist/self-check/fitness-0.1.0-py3-none-any.whl fitness check --rules rules
+uvx --from ./dist/self-check/fitness-0.1.0-py3-none-any.whl fitness lint
+uvx --from ./dist/self-check/fitness-0.1.0-py3-none-any.whl fitness check
 uv run ruff format --check .
 uv run pyrefly check
 ```
@@ -30,7 +30,7 @@ explicitly runs tests, builds and refreshes the retained wheel. Use this to
 bootstrap a checkout or deliberately adopt a tested CLI version. `just build`
 builds a separate candidate in `dist/` without replacing the retained runner.
 
-`rules/` defines zero-limit lint, typing, and layout expectations. `tool/ruff/adapter.py`
+`fitnessfunctions/` defines zero-limit lint, typing, and layout expectations. `tool/ruff/adapter.py`
 and `tool/pyrefly/adapter.py` run the development tools using existing
 `pyproject.toml` configuration. Run recipes from the project root after `just setup`.
 Each adapter lives in `tool/<name>/adapter.py`, with its own `test_*.py` files.
@@ -45,7 +45,7 @@ they do not import Fitness. Ruff checks the repository, and Pyrefly checks
 Pyrefly findings use native rule IDs. Ruff findings use the most-specific requested
 selector and retain the concrete native code in the message.
 The general Ruff function uses `rules: [E, F, I, UP, SIM]` in
-`rules/package.yaml`; `PGH004` and `TID251` live in dedicated functions. Ruff rule
+`fitnessfunctions/package.yaml`; `PGH004` and `TID251` live in dedicated functions. Ruff rule
 selection is defined in YAML, not `pyproject.toml`. The Ruff adapter selects the
 longest matching selector across the selected invocation: `F401` wins over `F4`,
 which wins over `F` (`ALL` is least specific). It emits one finding with that
@@ -72,16 +72,16 @@ allowed. Pyrefly enables both `explicit-any` and `implicit-any` checks, includin
 tests and adapters. Pyrefly uses exact IDs in explicit selections. General Ruff
 and Pyrefly functions omit guidance and rely on their native tool messages.
 
-Architecture functions live in `rules/architecture.yaml`. Functions about the
-definitions themselves live in `rules/meta.yaml` with `type: meta`.
+Architecture functions live in `fitnessfunctions/architecture.yaml`. Functions about the
+definitions themselves live in `fitnessfunctions/meta.yaml` with `type: meta`.
 The layout adapter's
 `architecture-function-type` rule reports every function there whose type is not
 `architecture`. Other definition files may contain other types.
 The Pydantic-model function uses Ruff `TID251` with its `banned-api` configuration
 in YAML to prohibit standard-library and Pydantic dataclasses.
 
-The `type: versioncontrol` function in `rules/versioncontrol.yaml` checks staged
-paths: `rules/` and `tool/` may change
+The `type: versioncontrol` function in `fitnessfunctions/versioncontrol.yaml` checks staged
+paths: `fitnessfunctions/` and `tool/` may change
 together, as may `src/` and `tests/`, but one commit cannot mix the two groups.
 Other paths are neutral. Stage a cohesive change, then run `just check` before
 committing. Unstaged changes are ignored; an empty index passes. This checks the

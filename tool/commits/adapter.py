@@ -15,7 +15,7 @@ def findings(root: Path) -> list[dict[str, str]]:
         check=True,
     )
     paths = result.stdout.split("\0")
-    definitions = [path for path in paths if path.startswith(("rules/", "tool/"))]
+    definitions = [path for path in paths if path.startswith(("fitnessfunctions/", "tool/"))]
     implementation = [path for path in paths if path.startswith(("src/", "tests/"))]
     if definitions and implementation:
         return [
@@ -24,7 +24,7 @@ def findings(root: Path) -> list[dict[str, str]]:
                 "rule_id": "separate-definition-and-implementation-changes",
                 "tool_message": (
                     "Split the staged changes into separate commits. "
-                    f"Rules/tools: {', '.join(definitions)}. "
+                    f"Fitness functions/tools: {', '.join(definitions)}. "
                     f"Source/tests: {', '.join(implementation)}."
                 ),
             }

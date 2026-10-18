@@ -30,10 +30,10 @@ def stage(root: Path, paths: list[str]) -> None:
     "paths",
     [
         [],
-        ["rules/example.yaml", "tool/example/adapter.py"],
+        ["fitnessfunctions/example.yaml", "tool/example/adapter.py"],
         ["src/example.py", "tests/test_example.py"],
         ["README.md", "pyproject.toml"],
-        ["rules/example.yaml", "README.md"],
+        ["fitnessfunctions/example.yaml", "README.md"],
     ],
 )
 def test_allowed_commit_groups(repository: Path, run_adapter: RunAdapter, paths: list[str]):
@@ -43,7 +43,7 @@ def test_allowed_commit_groups(repository: Path, run_adapter: RunAdapter, paths:
     assert json.loads(result.stdout) == []
 
 
-@pytest.mark.parametrize("definition", ["rules/example.yaml", "tool/example/adapter.py"])
+@pytest.mark.parametrize("definition", ["fitnessfunctions/example.yaml", "tool/example/adapter.py"])
 @pytest.mark.parametrize("implementation", ["src/example.py", "tests/test_example.py"])
 def test_rejects_every_mixed_pair(
     repository: Path, run_adapter: RunAdapter, definition: str, implementation: str
@@ -59,7 +59,7 @@ def test_rejects_every_mixed_pair(
 
 
 def test_unstaged_changes_do_not_affect_commit(repository: Path, run_adapter: RunAdapter):
-    stage(repository, ["rules/example.yaml"])
+    stage(repository, ["fitnessfunctions/example.yaml"])
     source = repository / "src" / "example.py"
     source.parent.mkdir()
     source.write_text("unstaged\n")

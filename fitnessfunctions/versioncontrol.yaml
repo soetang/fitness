@@ -3,4 +3,4 @@ functions:
     type: versioncontrol
     tool: commits
     rules: [separate-definition-and-implementation-changes]
-    guidance: Commit rules/tool changes separately from src/tests changes. Each pair may change together.
+    guidance: Commit fitnessfunctions/tool changes separately from src/tests changes. Each pair may change together.

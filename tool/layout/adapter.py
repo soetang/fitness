@@ -39,7 +39,7 @@ def findings(root: Path) -> list[dict[str, str]]:
             or not any(path.parent.glob("test_*.py"))
         )
     )
-    architecture = root / "rules" / "architecture.yaml"
+    architecture = root / "fitnessfunctions" / "architecture.yaml"
     if architecture.is_file():
         document = yaml.safe_load(architecture.read_text())
         results.extend(

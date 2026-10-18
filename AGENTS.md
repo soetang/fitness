@@ -15,11 +15,11 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
 - Keep tool-specific behavior in integrations, not in the core.
 - Discuss data-model and integration-contract changes with the user before implementing them.
 - Use Pydantic models instead of dataclasses. The `TID251` function in
-  `rules/architecture.yaml` supplies the banned-api settings to Ruff.
-- `rules/architecture.yaml` may contain only fitness functions with
+  `fitnessfunctions/architecture.yaml` supplies the banned-api settings to Ruff.
+- `fitnessfunctions/architecture.yaml` may contain only fitness functions with
   `type: architecture`; the layout adapter enforces this project-specific rule.
 - Put fitness functions about definition organization and conventions in
-  `rules/meta.yaml` with `type: meta`, including the architecture-only constraint.
+  `fitnessfunctions/meta.yaml` with `type: meta`, including the architecture-only constraint.
 - Reference native diagnostic IDs or supported selectors in `rules`. Omit `rules` to count every
   diagnostic from a tool's configured checks; an empty list is invalid.
 - Keep this project's Ruff selection in the YAML fitness functions, not in
@@ -49,7 +49,7 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
 - Use `just fmt` to fix lint/formatting issues, then rerun `just check`.
 - Stage and commit cohesive units of work separately; avoid accumulating unrelated
   changes into one large commit.
-- A commit may change `rules/` and `tool/` together, or `src/` and `tests/`
+- A commit may change `fitnessfunctions/` and `tool/` together, or `src/` and `tests/`
   together, but must not mix these groups. Other paths are neutral. Stage the
   intended commit, then run `just check` before committing; the commit fitness
   function checks the Git index, including additions, modifications, and deletions.

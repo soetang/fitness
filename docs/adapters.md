@@ -16,7 +16,7 @@ tool/
   conftest.py
 ```
 
-Register its command in `rules/tools.yaml`:
+Register its command in `fitnessfunctions/tools.yaml`:
 
 ```yaml
 tools:
@@ -57,7 +57,7 @@ under `lint`. The adapter encodes these as TOML overrides. Compatible settings
 are combined into one invocation; conflicting settings produce an error.
 
 For example, the dataclass restriction in
-[`rules/architecture.yaml`](../rules/architecture.yaml) selects `TID251` and
+[`fitnessfunctions/architecture.yaml`](../fitnessfunctions/architecture.yaml) selects `TID251` and
 supplies `flake8-tidy-imports.banned-api` settings on the fitness function.
 
 ## Testing

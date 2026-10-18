@@ -53,7 +53,7 @@ def test_requires_adapter_folder_and_colocated_tests(tmp_path: Path):
 
 
 def test_architecture_file_allows_only_architecture_functions(tmp_path: Path):
-    rules = tmp_path / "rules"
+    rules = tmp_path / "fitnessfunctions"
     rules.mkdir()
     (rules / "architecture.yaml").write_text("""
 functions:
@@ -64,11 +64,11 @@ functions:
     result = findings(tmp_path)
     assert len(result) == 2
     assert all(item["rule_id"] == "architecture-function-type" for item in result)
-    assert all(item["filename"] == "rules/architecture.yaml" for item in result)
+    assert all(item["filename"] == "fitnessfunctions/architecture.yaml" for item in result)
 
 
 def test_type_restriction_is_specific_to_architecture_file(tmp_path: Path):
-    rules = tmp_path / "rules"
+    rules = tmp_path / "fitnessfunctions"
     rules.mkdir()
     (rules / "package.yaml").write_text("functions: [{title: Lint, type: lint}]")
     (rules / "architecture.yaml").write_text("functions: [{title: Layout, type: architecture}]")
