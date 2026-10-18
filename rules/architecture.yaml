@@ -14,3 +14,8 @@ functions:
     tool: layout
     rules: [architecture-function-type]
     guidance: Only functions with type architecture belong in rules/architecture.yaml.
+  - title: Separate definition changes from implementation changes
+    type: architecture
+    tool: commits
+    rules: [separate-definition-and-implementation-changes]
+    guidance: Commit rules/tool changes separately from src/tests changes. Each pair may change together.

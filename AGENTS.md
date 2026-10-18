@@ -33,6 +33,10 @@ consistent with the prototype's scope: `fitness lint` and `fitness check`.
 - Use `just fmt` to fix lint/formatting issues, then rerun `just check`.
 - Stage and commit cohesive units of work separately; avoid accumulating unrelated
   changes into one large commit.
+- A commit may change `rules/` and `tool/` together, or `src/` and `tests/`
+  together, but must not mix these groups. Other paths are neutral. Stage the
+  intended commit, then run `just check` before committing; the commit fitness
+  function checks the Git index, including additions, modifications, and deletions.
 
 ## Glossary
 
