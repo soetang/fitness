@@ -11,6 +11,14 @@ from fitness.features.check.contract import check_fitness_functions, execute_ada
 
 
 def test_shared_counts_limits_and_source(suite: FitnessFunctions, findings_json: str):
+    results = check_fitness_functions(suite, lambda command, stdin: findings_json)
+    assert [r.status for r in results] == ["FAIL", "PASS", "NOT AUTOMATED"]
+    assert [len(r.findings) for r in results] == [1, 1, 0]
+    assert results[0].fitness_function.source.endswith("apis.yaml:2")
+    assert len(suite.warnings) == 1
+
+
+def test_shared_tool_receives_one_batched_request(suite: FitnessFunctions, findings_json: str):
     requests = []
 
     def execute_adapter(command: list[str], stdin: str | None):
@@ -18,10 +26,7 @@ def test_shared_counts_limits_and_source(suite: FitnessFunctions, findings_json:
         requests.append((command, json.loads(stdin)))
         return findings_json
 
-    results = check_fitness_functions(suite, execute_adapter)
-    assert [r.status for r in results] == ["FAIL", "PASS", "NOT AUTOMATED"]
-    assert [len(r.findings) for r in results] == [1, 1, 0]
-    assert results[0].fitness_function.source.endswith("apis.yaml:2")
+    check_fitness_functions(suite, execute_adapter)
     assert len(requests) == 1
     assert requests[0][1] == {
         "config": {"preview": True},
@@ -30,7 +35,6 @@ def test_shared_counts_limits_and_source(suite: FitnessFunctions, findings_json:
             {"rules": ["API001"], "config": {}},
         ],
     }
-    assert len(suite.warnings) == 1
 
 
 def test_filter_and_empty_findings(suite: FitnessFunctions):
