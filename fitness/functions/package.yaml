@@ -1,5 +1,16 @@
 description: Python code quality, typing, and source/test maintainability.
 functions:
+  - title: Keep function cyclomatic complexity within the limit
+    type: maintainability
+    tool: ruff
+    rules: [C901]
+    config:
+      mccabe:
+        max-complexity: 8
+    guidance: >-
+      Refactor complex functions into smaller, cohesive functions named for domain
+      operations. Keep orchestration readable by separating steps such as running
+      fitness functions and formatting their results.
   - title: Keep source and test Python files within the line limit
     type: maintainability
     tool: layout
