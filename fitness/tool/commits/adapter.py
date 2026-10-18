@@ -15,7 +15,7 @@ def findings(root: Path) -> list[dict[str, str]]:
         check=True,
     )
     paths = result.stdout.split("\0")
-    definitions = [path for path in paths if path.startswith(("fitnessfunctions/", "tool/"))]
+    definitions = [path for path in paths if path.startswith("fitness/")]
     implementation = [path for path in paths if path.startswith(("src/", "tests/"))]
     if definitions and implementation:
         return [

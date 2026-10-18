@@ -3,4 +3,4 @@ functions:
     type: meta
     tool: layout
     rules: [architecture-function-type]
-    guidance: Only functions with type architecture belong in fitnessfunctions/architecture.yaml.
+    guidance: Only functions with type architecture belong in fitness/functions/architecture.yaml.

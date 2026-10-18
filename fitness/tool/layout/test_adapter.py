@@ -29,7 +29,7 @@ def test_reports_each_misplaced_adapter_test(tmp_path: Path):
 
 
 def test_adapter_tests_in_tool_are_allowed(tmp_path: Path):
-    tool = tmp_path / "tool" / "example"
+    tool = tmp_path / "fitness" / "tool" / "example"
     tool.mkdir(parents=True)
     (tool / "adapter.py").touch()
     (tool / "test_adapter.py").touch()
@@ -37,8 +37,8 @@ def test_adapter_tests_in_tool_are_allowed(tmp_path: Path):
 
 
 def test_requires_adapter_folder_and_colocated_tests(tmp_path: Path):
-    tool = tmp_path / "tool"
-    tool.mkdir()
+    tool = tmp_path / "fitness" / "tool"
+    tool.mkdir(parents=True)
     (tool / "legacy_adapter.py").touch()
     (tool / "test_orphan.py").touch()
     lonely = tool / "lonely"
@@ -46,15 +46,15 @@ def test_requires_adapter_folder_and_colocated_tests(tmp_path: Path):
     (lonely / "adapter.py").touch()
     result = findings(tmp_path)
     assert {(item["filename"], item["rule_id"]) for item in result} == {
-        ("tool/test_orphan.py", "adapter-test-location"),
-        ("tool/legacy_adapter.py", "adapter-folder"),
-        ("tool/lonely/adapter.py", "adapter-folder"),
+        ("fitness/tool/test_orphan.py", "adapter-test-location"),
+        ("fitness/tool/legacy_adapter.py", "adapter-folder"),
+        ("fitness/tool/lonely/adapter.py", "adapter-folder"),
     }
 
 
 def test_architecture_file_allows_only_architecture_functions(tmp_path: Path):
-    rules = tmp_path / "fitnessfunctions"
-    rules.mkdir()
+    rules = tmp_path / "fitness" / "functions"
+    rules.mkdir(parents=True)
     (rules / "architecture.yaml").write_text("""
 functions:
   - {title: Valid architecture, type: architecture}
@@ -64,12 +64,12 @@ functions:
     result = findings(tmp_path)
     assert len(result) == 2
     assert all(item["rule_id"] == "architecture-function-type" for item in result)
-    assert all(item["filename"] == "fitnessfunctions/architecture.yaml" for item in result)
+    assert all(item["filename"] == "fitness/functions/architecture.yaml" for item in result)
 
 
 def test_type_restriction_is_specific_to_architecture_file(tmp_path: Path):
-    rules = tmp_path / "fitnessfunctions"
-    rules.mkdir()
+    rules = tmp_path / "fitness" / "functions"
+    rules.mkdir(parents=True)
     (rules / "package.yaml").write_text("functions: [{title: Lint, type: lint}]")
     (rules / "architecture.yaml").write_text("functions: [{title: Layout, type: architecture}]")
     assert findings(tmp_path) == []

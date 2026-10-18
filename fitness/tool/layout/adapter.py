@@ -10,14 +10,14 @@ def findings(root: Path) -> list[dict[str, str]]:
     misplaced = list((root / "tests").rglob("test_*adapter*.py"))
     misplaced.extend(
         path
-        for path in (root / "tool").rglob("test_*.py")
+        for path in (root / "fitness" / "tool").rglob("test_*.py")
         if not (path.parent / "adapter.py").is_file()
     )
     results = [
         {
             "tool": "layout",
             "rule_id": "adapter-test-location",
-            "tool_message": "Adapter tests belong in tool/<name>/ beside adapter.py.",
+            "tool_message": "Adapter tests belong in fitness/tool/<name>/ beside adapter.py.",
             "filename": str(path.relative_to(root)),
         }
         for path in sorted(misplaced)
@@ -27,19 +27,19 @@ def findings(root: Path) -> list[dict[str, str]]:
         {
             "tool": "layout",
             "rule_id": "adapter-folder",
-            "tool_message": "Use tool/<name>/adapter.py with colocated test_*.py files.",
+            "tool_message": "Use fitness/tool/<name>/adapter.py with colocated test_*.py files.",
             "filename": str(path.relative_to(root)),
         }
-        for path in sorted((root / "tool").rglob("*.py"))
+        for path in sorted((root / "fitness" / "tool").rglob("*.py"))
         if (path.name == "adapter.py" or path.name.endswith("_adapter.py"))
         and not path.name.startswith("test_")
         and (
             path.name != "adapter.py"
-            or path.parent.parent != root / "tool"
+            or path.parent.parent != root / "fitness" / "tool"
             or not any(path.parent.glob("test_*.py"))
         )
     )
-    architecture = root / "fitnessfunctions" / "architecture.yaml"
+    architecture = root / "fitness" / "functions" / "architecture.yaml"
     if architecture.is_file():
         document = yaml.safe_load(architecture.read_text())
         results.extend(

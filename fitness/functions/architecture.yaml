@@ -3,12 +3,12 @@ functions:
     type: architecture
     tool: layout
     rules: [adapter-test-location]
-    guidance: Move adapter tests into tool/<name>/ beside adapter.py.
+    guidance: Move adapter tests into fitness/tool/<name>/ beside adapter.py.
   - title: Give each adapter its own folder and tests
     type: architecture
     tool: layout
     rules: [adapter-folder]
-    guidance: Use tool/<name>/adapter.py and colocated test_*.py modules.
+    guidance: Use fitness/tool/<name>/adapter.py and colocated test_*.py modules.
   - title: Use Pydantic models instead of dataclasses
     type: architecture
     tool: ruff

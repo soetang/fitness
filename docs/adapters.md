@@ -9,19 +9,19 @@ the core maps reported `tool` + `rule_id` values exactly.
 Give each adapter its own folder, with colocated tests:
 
 ```text
-tool/
+fitness/tool/
   example/
     adapter.py
     test_adapter.py
   conftest.py
 ```
 
-Register its command in `fitnessfunctions/tools.yaml`:
+Register its command in `fitness/tool.yaml`:
 
 ```yaml
 tools:
   example:
-    command: [uv, run, --no-sync, python, tool/example/adapter.py]
+    command: [uv, run, --no-sync, python, fitness/tool/example/adapter.py]
     send_input: true
 ```
 
@@ -46,7 +46,7 @@ violation: report each actual offender.
 
 ## Ruff example
 
-[`tool/ruff/adapter.py`](../tool/ruff/adapter.py) accepts native rule IDs and
+[`fitness/tool/ruff/adapter.py`](../fitness/tool/ruff/adapter.py) accepts native rule IDs and
 families such as `F`, `UP`, and `SIM`. Across the selected invocation, the most
 specific matching selector wins: `F401` before `F4` before `F`; `ALL` is least
 specific. It emits that selector as `rule_id` and retains the concrete native
@@ -57,12 +57,12 @@ under `lint`. The adapter encodes these as TOML overrides. Compatible settings
 are combined into one invocation; conflicting settings produce an error.
 
 For example, the dataclass restriction in
-[`fitnessfunctions/architecture.yaml`](../fitnessfunctions/architecture.yaml) selects `TID251` and
+[`fitness/functions/architecture.yaml`](../fitness/functions/architecture.yaml) selects `TID251` and
 supplies `flake8-tidy-imports.banned-api` settings on the fitness function.
 
 ## Testing
 
-Use shared fixtures from [`tool/conftest.py`](../tool/conftest.py) and real
+Use shared fixtures from [`fitness/tool/conftest.py`](../fitness/tool/conftest.py) and real
 subprocesses, with no mocks. Cover clean output, individual findings, rule
 selection, configuration, and execution failures. Run `just check` after changes.
 

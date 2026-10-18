@@ -12,7 +12,7 @@ lint:
     uv run ruff format --check .
 
 fmt:
-    uv run ruff check --fix --select "$(uv run python -c 'from pathlib import Path; import yaml; functions = yaml.safe_load(Path("fitnessfunctions/package.yaml").read_text())["functions"]; print(",".join(rule for f in functions if f.get("tool") == "ruff" for rule in f["rules"]))')" .
+    uv run ruff check --fix --select "$(uv run python -c 'from pathlib import Path; import yaml; functions = yaml.safe_load(Path("fitness/functions/package.yaml").read_text())["functions"]; print(",".join(rule for f in functions if f.get("tool") == "ruff" for rule in f["rules"]))')" .
     uv run ruff format .
 
 typecheck:
