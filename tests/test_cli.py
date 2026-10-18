@@ -21,28 +21,18 @@ def test_lint_is_offline(definitions_path: Path):
     assert "WARNING" in result.output
 
 
-def test_check_presents_failures(definitions_path: Path, findings_json: str):
+def test_check_presentation(definitions_path: Path, findings_json: str):
     app = create_app(lambda command, stdin: findings_json)
     result = CliRunner().invoke(app, ["check", "--rules", str(definitions_path)])
     assert result.exit_code == 1
     assert "FAIL  Use supported APIs" in result.output
     assert "Guidance:" in result.output
     assert "src/orders/client.py:12:5" in result.output
-
-
-def test_check_omits_successful_functions(definitions_path: Path, findings_json: str):
-    app = create_app(lambda command, stdin: findings_json)
-    result = CliRunner().invoke(app, ["check", "--rules", str(definitions_path)])
-    assert result.exit_code == 1
     assert "NOT AUTOMATED" not in result.output
     assert "PASS" not in result.output
     assert "Keep API migration within budget" not in result.output
     assert "Keep features independent" not in result.output
     assert "success" not in result.output
-
-
-def test_filtered_check_reports_success(definitions_path: Path, findings_json: str):
-    app = create_app(lambda command, stdin: findings_json)
     passed = CliRunner().invoke(
         app, ["check", "--rules", str(definitions_path), "--type", "migration"]
     )
