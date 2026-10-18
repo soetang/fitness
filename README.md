@@ -30,6 +30,15 @@ just update-runner  # Initialize once; rerun only to deliberately update the run
 just check
 ```
 
+## TODO
+
+Potential features, pending further design discussion:
+
+- [ ] Select fitness functions for agent context by importance or relevant files.
+- [ ] Package a skill for using Fitness and adding functions and adapters.
+- [ ] Support shared and package-specific functions across multiple codebases.
+- [ ] Opt into reusable fitness functions from remote Git collections.
+
 ## Documentation
 
 - [Glossary](docs/glossary.md)
