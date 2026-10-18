@@ -1,3 +1,4 @@
+description: Python code quality, typing, and source/test maintainability.
 functions:
   - title: Keep source and test Python files within the line limit
     type: maintainability

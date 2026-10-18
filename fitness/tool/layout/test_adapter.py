@@ -109,26 +109,16 @@ def test_requires_adapter_folder_and_colocated_tests(tmp_path: Path, findings: F
     }
 
 
-def test_architecture_file_allows_only_architecture_functions(tmp_path: Path, findings: Findings):
+def test_document_filenames_do_not_restrict_function_types(tmp_path: Path, findings: Findings):
     rules = tmp_path / "fitness" / "functions"
     rules.mkdir(parents=True)
     (rules / "architecture.yaml").write_text("""
+description: Expectations for a subject spanning several types.
 functions:
-  - {title: Valid architecture, type: architecture}
-  - {title: Misplaced lint, type: lint}
-  - {title: Misplaced typing, type: typing}
+  - {title: Structure, type: architecture}
+  - {title: Quality, type: lint}
+  - {title: Typing, type: typing}
 """)
-    result = findings(tmp_path)
-    assert len(result) == 2
-    assert all(item["rule_id"] == "architecture-function-type" for item in result)
-    assert all(item["filename"] == "fitness/functions/architecture.yaml" for item in result)
-
-
-def test_type_restriction_is_specific_to_architecture_file(tmp_path: Path, findings: Findings):
-    rules = tmp_path / "fitness" / "functions"
-    rules.mkdir(parents=True)
-    (rules / "package.yaml").write_text("functions: [{title: Lint, type: lint}]")
-    (rules / "architecture.yaml").write_text("functions: [{title: Layout, type: architecture}]")
     assert findings(tmp_path) == []
 
 

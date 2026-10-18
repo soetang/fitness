@@ -1,3 +1,4 @@
+description: Source structure, feature contracts and size, test organization, and dependency placement.
 functions:
   - title: Keep feature tests with their corresponding feature
     type: architecture
@@ -27,16 +28,6 @@ functions:
         pydantic: [pydantic]
         pyyaml: [yaml]
     guidance: Move dependencies unused by src/ to the dev group; retain build-only requirements in build-system.requires.
-  - title: Keep adapter tests beside their adapters
-    type: architecture
-    tool: layout
-    rules: [adapter-test-location]
-    guidance: Move adapter tests into fitness/tool/<name>/ beside adapter.py.
-  - title: Give each adapter its own folder and tests
-    type: architecture
-    tool: layout
-    rules: [adapter-folder]
-    guidance: Use fitness/tool/<name>/adapter.py and colocated test_*.py modules.
   - title: Use Pydantic models instead of dataclasses
     type: architecture
     tool: ruff

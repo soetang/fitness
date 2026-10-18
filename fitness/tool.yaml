@@ -1,3 +1,4 @@
+description: Commands and invocation-wide settings for the repository's fitness checks.
 tools:
   ruff:
     command: [uv, run, --no-sync, python, fitness/tool/ruff/adapter.py]

@@ -22,7 +22,7 @@ native execution and JSON handling retain real subprocess tests. Fixtures are in
 ### Feature measurement
 
 The layout adapter uses the encoding specified in the
-[function configuration](../fitness/functions/architecture.yaml) and locked tiktoken
+[function configuration](../fitness/functions/codebase.yaml) and locked tiktoken
 version. Tiktoken may populate its encoding cache on first use. Files are collected
 recursively from each `src/fitness/features/<name>/` directory.
 

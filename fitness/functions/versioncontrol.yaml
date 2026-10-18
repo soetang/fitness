@@ -1,3 +1,4 @@
+description: How repository changes are grouped into commits.
 functions:
   - title: Change at most one feature per commit
     type: versioncontrol

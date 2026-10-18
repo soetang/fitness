@@ -6,7 +6,6 @@ import sys
 import tomllib
 from pathlib import Path
 
-import yaml
 from architecture import (
     contract_findings,
     dependency_findings,
@@ -106,7 +105,6 @@ def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
         elif rule in {
             "adapter-test-location",
             "adapter-folder",
-            "architecture-function-type",
             "ruff-config-location",
             "fitness-owns-ruff-check",
         }:
@@ -149,19 +147,6 @@ def findings(root: Path) -> list[dict[str, str]]:
             or not any(path.parent.glob("test_*.py"))
         )
     )
-    architecture = root / "fitness" / "functions" / "architecture.yaml"
-    if architecture.is_file():
-        document = yaml.safe_load(architecture.read_text())
-        results.extend(
-            {
-                "tool": "layout",
-                "rule_id": "architecture-function-type",
-                "tool_message": f"{function['title']}: expected type architecture.",
-                "filename": str(architecture.relative_to(root)),
-            }
-            for function in document.get("functions", [])
-            if function.get("type") != "architecture"
-        )
     project = root / "pyproject.toml"
     if project.is_file() and "ruff" in tomllib.loads(project.read_text()).get("tool", {}):
         results.append(
