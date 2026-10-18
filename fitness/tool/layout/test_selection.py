@@ -2,6 +2,7 @@ import json
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from types import ModuleType
 from typing import cast
 
 import pytest
@@ -83,30 +84,65 @@ def test_duplicate_selections_report_each_finding_once(
 
 
 @pytest.mark.parametrize(
-    "additional_rules",
+    ("rules", "expected_scopes"),
     [
-        [],
-        ["contract-only-feature-access"],
-        ["feature-test-location"],
-        ["contract-only-feature-access", "feature-test-location"],
+        ([], []),
+        (["adapter-test-location"], []),
+        (["dependency-placement"], [True]),
+        (["contract-only-feature-access"], [False]),
+        (["feature-test-location"], [False]),
+        (["dependency-placement", "contract-only-feature-access"], [False]),
+        (["dependency-placement", "feature-test-location"], [False]),
+        (
+            ["dependency-placement", "contract-only-feature-access", "feature-test-location"],
+            [False],
+        ),
     ],
 )
 def test_selected_rules_determine_shared_import_scope(
     tmp_path: Path,
-    write_file: Callable[[str, str], Path],
-    run_configured_adapter: RunAdapter,
-    additional_rules: list[str],
+    adapter_module: ModuleType,
+    rules: list[str],
+    expected_scopes: list[bool],
 ):
-    write_file("src/example.py", "import os\n")
-    write_file("tests/test_broken.py", "def invalid syntax")
-    selections: list[JsonValue] = [
-        {"rules": ["dependency-placement"], "config": {"module_mapping": {}}},
-        *[{"rules": cast(JsonValue, [rule])} for rule in additional_rules],
+    calls: list[tuple[Path, bool]] = []
+
+    def scan(root: Path, source_only: bool) -> dict[Path, list[tuple[str, int]]]:
+        calls.append((root, source_only))
+        return {}
+
+    request = adapter_module.Request.model_validate(
+        {
+            "selections": [
+                {
+                    "rules": [rule],
+                    "config": {"module_mapping": {}} if rule == "dependency-placement" else {},
+                }
+                for rule in rules
+            ]
+        }
+    )
+    assert adapter_module.findings(tmp_path, request, scanner=scan) == []
+    assert calls == [(tmp_path.resolve(), scope) for scope in expected_scopes]
+
+
+def test_combined_rules_evaluate_the_shared_inventory(tmp_path: Path, adapter_module: ModuleType):
+    inventory = {
+        tmp_path / "src/client.py": [("fitness.features.orders.execution", 1)],
+        tmp_path / "tests/test_orders.py": [("fitness.features.orders.contract", 1)],
+    }
+    calls: list[tuple[Path, bool]] = []
+
+    def scan(root: Path, source_only: bool) -> dict[Path, list[tuple[str, int]]]:
+        calls.append((root, source_only))
+        return inventory
+
+    request = adapter_module.Request.model_validate(
+        {"selections": [{"rules": ["contract-only-feature-access", "feature-test-location"]}]}
+    )
+    results = adapter_module.findings(tmp_path, request, scanner=scan)
+    assert calls == [(tmp_path.resolve(), False)]
+    assert [(item["rule_id"], item["filename"]) for item in results] == [
+        ("contract-only-feature-access", "src/client.py"),
+        ("feature-test-location", "tests/test_orders.py"),
     ]
-    result = run_configured_adapter(tmp_path, {"selections": selections})
-    if additional_rules:
-        assert result.returncode != 0
-        assert result.stdout == ""
-    else:
-        assert result.returncode == 0, result.stderr
-        assert json.loads(result.stdout) == []

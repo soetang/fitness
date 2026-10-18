@@ -47,6 +47,7 @@ class Request(Settings):
 
 
 ImportInventory = dict[Path, list[tuple[str, int]]]
+ImportScanner = Callable[[Path, bool], ImportInventory]
 Evaluator = Callable[[Path, ImportInventory], list[dict[str, str]]]
 ScanScope = Literal["none", "source", "repository"]
 S = TypeVar("S", bound=Settings)
@@ -71,10 +72,12 @@ def define_rule(
     return Rule(prepare=prepare, scope=scope)
 
 
-def findings(root: Path, request: Request) -> list[dict[str, str]]:
+def findings(
+    root: Path, request: Request, *, scanner: ImportScanner = scan_imports
+) -> list[dict[str, str]]:
     root = root.resolve()
     configurations = validate_layout_selections(request)
-    imports = analyze_selected_imports(root, set(configurations))
+    imports = analyze_selected_imports(root, set(configurations), scanner)
     results: list[dict[str, str]] = []
     for evaluate in configurations.values():
         results.extend(evaluate(root, imports))
@@ -103,12 +106,12 @@ def validate_layout_selections(request: Request) -> dict[str, Evaluator]:
 
 
 def analyze_selected_imports(
-    root: Path, selected_rules: set[str]
+    root: Path, selected_rules: set[str], scanner: ImportScanner = scan_imports
 ) -> dict[Path, list[tuple[str, int]]]:
     scopes = {RULES[rule].scope for rule in selected_rules}
     if scopes <= {"none"}:
         return {}
-    return scan_imports(root, source_only="repository" not in scopes)
+    return scanner(root, "repository" not in scopes)
 
 
 def check_runtime_dependency_usage(
