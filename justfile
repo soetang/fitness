@@ -1,5 +1,6 @@
 runner_dir := justfile_directory() / ".fitness-runner"
 fitness_cli := runner_dir / "bin/fitness"
+quiet := "sh tool/quiet.sh"
 
 default:
     @just --list
@@ -8,22 +9,26 @@ setup:
     uv sync --locked
 
 test:
-    @if output="$(uv run pytest 2>&1)"; then echo success; else status=$?; printf '%s\n' "$output"; exit "$status"; fi
+    @{{quiet}} uv run pytest
 
 lint: _runner-ready
-    "{{fitness_cli}}" lint
-    uv run ruff format --config "$(uv run python fitness/tool/ruff/format_config.py)" --check .
+    @FITNESS_QUIET_SUCCESS=1 {{quiet}} "{{fitness_cli}}" lint
+    @{{quiet}} just _format --check
 
 fitness: _runner-ready
-    "{{fitness_cli}}" check
+    @{{quiet}} "{{fitness_cli}}" check
 
-check: test lint fitness
+check:
+    @{{quiet}} env FITNESS_QUIET_SUCCESS=1 just test lint fitness
 
 fmt:
-    uv run ruff format --config "$(uv run python fitness/tool/ruff/format_config.py)" .
+    @{{quiet}} just _format
+
+_format *args:
+    @config=$(uv run python fitness/tool/ruff/format_config.py) && uv run ruff format --config "$config" {{args}} .
 
 typecheck: _runner-ready
-    @"{{fitness_cli}}" check --type typing
+    @{{quiet}} "{{fitness_cli}}" check --type typing
 
 build:
     uv build --wheel
