@@ -1,10 +1,11 @@
-"""Report misplaced adapter test modules using the project's naming convention."""
+"""Evaluate selected repository layout checks with shared import analysis."""
 
 import json
 import re
 import sys
 import tomllib
 from pathlib import Path
+from typing import cast
 
 from architecture import (
     contract_findings,
@@ -44,7 +45,7 @@ class Request(Settings):
     selections: list[Selection] = Field(default_factory=list)
 
 
-def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
+def findings(root: Path, request: Request) -> list[dict[str, str]]:
     root = root.resolve()
     results: list[dict[str, str]] = []
     configurations: dict[str, dict[str, JsonValue]] = {}
@@ -55,6 +56,22 @@ def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
             if rule in configurations and configurations[rule] != selection.config:
                 raise ValueError(f"Conflicting configuration for {rule}")
             configurations[rule] = selection.config
+    setting_types: dict[str, type[Settings]] = {
+        "source-test-file-length": FileLengthSettings,
+        "feature-test-location": Settings,
+        "feature-token-budget": TokenSettings,
+        "contract-only-feature-access": Settings,
+        "dependency-placement": DependencySettings,
+        "adapter-test-location": Settings,
+        "adapter-folder": Settings,
+        "ruff-config-location": Settings,
+        "fitness-owns-ruff-check": Settings,
+    }
+    validated: dict[str, Settings] = {}
+    for rule, config in configurations.items():
+        if rule not in setting_types:
+            raise ValueError(f"Unsupported layout rule: {rule}")
+        validated[rule] = setting_types[rule].model_validate(config)
     imports = (
         scan_imports(
             root,
@@ -72,21 +89,19 @@ def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
         }
         else {}
     )
-    for rule, config in configurations.items():
+    for rule, config in validated.items():
         if rule == "source-test-file-length":
-            file_settings = FileLengthSettings.model_validate(config)
+            file_settings = cast(FileLengthSettings, config)
             results.extend(file_length_findings(root, file_settings.max_lines))
         elif rule == "feature-test-location":
-            Settings.model_validate(config)
             results.extend(feature_test_findings(root, imports))
         elif rule == "feature-token-budget":
-            settings = TokenSettings.model_validate(config)
+            settings = cast(TokenSettings, config)
             results.extend(token_findings(root, settings.budget, settings.encoding))
         elif rule == "contract-only-feature-access":
-            Settings.model_validate(config)
             results.extend(contract_findings(root, imports))
         elif rule == "dependency-placement":
-            settings = DependencySettings.model_validate(config)
+            settings = cast(DependencySettings, config)
             project_path = root / "pyproject.toml"
             project = tomllib.loads(project_path.read_text()) if project_path.exists() else {}
             metadata = project.get("project", {})
@@ -102,26 +117,25 @@ def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
                     project.get("build-system", {}).get("requires", []),
                 )
             )
-        elif rule in {
-            "adapter-test-location",
-            "adapter-folder",
-            "ruff-config-location",
-            "fitness-owns-ruff-check",
-        }:
-            Settings.model_validate(config)
-        else:
-            raise ValueError(f"Unsupported layout rule: {rule}")
+        elif rule == "adapter-test-location":
+            results.extend(adapter_test_findings(root))
+        elif rule == "adapter-folder":
+            results.extend(adapter_folder_findings(root))
+        elif rule == "ruff-config-location":
+            results.extend(ruff_config_findings(root))
+        elif rule == "fitness-owns-ruff-check":
+            results.extend(ruff_check_findings(root))
     return results
 
 
-def findings(root: Path) -> list[dict[str, str]]:
+def adapter_test_findings(root: Path) -> list[dict[str, str]]:
     misplaced = list((root / "tests").rglob("test_*adapter*.py"))
     misplaced.extend(
         path
         for path in (root / "fitness" / "tool").rglob("test_*.py")
         if not (path.parent / "adapter.py").is_file()
     )
-    results = [
+    return [
         {
             "tool": "layout",
             "rule_id": "adapter-test-location",
@@ -131,7 +145,10 @@ def findings(root: Path) -> list[dict[str, str]]:
         for path in sorted(misplaced)
         if path.is_file()
     ]
-    results.extend(
+
+
+def adapter_folder_findings(root: Path) -> list[dict[str, str]]:
+    return [
         {
             "tool": "layout",
             "rule_id": "adapter-folder",
@@ -146,7 +163,11 @@ def findings(root: Path) -> list[dict[str, str]]:
             or path.parent.parent != root / "fitness" / "tool"
             or not any(path.parent.glob("test_*.py"))
         )
-    )
+    ]
+
+
+def ruff_config_findings(root: Path) -> list[dict[str, str]]:
+    results = []
     project = root / "pyproject.toml"
     if project.is_file() and "ruff" in tomllib.loads(project.read_text()).get("tool", {}):
         results.append(
@@ -159,6 +180,11 @@ def findings(root: Path) -> list[dict[str, str]]:
                 "filename": "pyproject.toml",
             }
         )
+    return results
+
+
+def ruff_check_findings(root: Path) -> list[dict[str, str]]:
+    results = []
     justfile = root / "justfile"
     if justfile.is_file():
         results.extend(
@@ -179,4 +205,4 @@ def findings(root: Path) -> list[dict[str, str]]:
 if __name__ == "__main__":
     root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.cwd()
     request = Request.model_validate_json(sys.stdin.read() or "{}")
-    print(json.dumps(findings(root) + architecture_findings(root, request)))
+    print(json.dumps(findings(root, request)))

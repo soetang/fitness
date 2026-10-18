@@ -28,7 +28,24 @@ def architecture_results(
 
 @pytest.fixture
 def findings(adapter_module: ModuleType) -> Findings:
-    return cast(Findings, adapter_module.findings)
+    def evaluate(root: Path) -> list[dict[str, str]]:
+        request = adapter_module.Request.model_validate(
+            {
+                "selections": [
+                    {
+                        "rules": [
+                            "adapter-test-location",
+                            "adapter-folder",
+                            "ruff-config-location",
+                            "fitness-owns-ruff-check",
+                        ]
+                    }
+                ]
+            }
+        )
+        return adapter_module.findings(root, request)
+
+    return evaluate
 
 
 @pytest.fixture
