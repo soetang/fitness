@@ -1,0 +1,9 @@
+[
+  {
+    "tool": "example",
+    "rule_id": "API001",
+    "tool_message": "Use our shared HTTP client instead.",
+    "filename": "src/orders/client.py",
+    "location": {"row": 12, "column": 5}
+  }
+]

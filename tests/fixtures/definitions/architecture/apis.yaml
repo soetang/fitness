@@ -1,0 +1,14 @@
+functions:
+  - title: Use supported APIs
+    type: architecture
+    tool: example
+    rules: [API001]
+    guidance: Access external services through our shared clients.
+  - title: Keep API migration within budget
+    type: migration
+    tool: example
+    rules: [API001]
+    limit: 1
+  - title: Keep features independent
+    type: architecture
+    guidance: Communicate through public interfaces.

@@ -1,0 +1,6 @@
+tools:
+  example:
+    command: [python, tests/fixtures/report.py]
+    send_input: true
+    config:
+      preview: true
