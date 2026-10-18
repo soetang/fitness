@@ -11,9 +11,8 @@ RunSelected = Callable[[Path, list[str] | None], CompletedProcess[str]]
 RunConfigured = Callable[[Path, dict[str, JsonValue]], CompletedProcess[str]]
 
 
-def test_reports_offender(tmp_path: Path, run_adapter: RunAdapter):
-    path = tmp_path / "bad.py"
-    path.write_text("import os\n")
+def test_reports_offender(write_file: Callable[[str, str], Path], run_adapter: RunAdapter):
+    path = write_file("bad.py", "import os\n")
     result = run_adapter(path)
     assert result.returncode == 0, result.stderr
     findings = json.loads(result.stdout)

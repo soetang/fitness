@@ -62,25 +62,12 @@ def contract_findings(
     results = []
     for path, references in imports.items():
         relative = path.relative_to(root)
-        module_parts = list(relative.with_suffix("").parts)
-        if module_parts[0] == "src":
-            module_parts.pop(0)
-        own_feature = (
-            module_parts[2]
-            if module_parts[:2] == ["fitness", "features"] and len(module_parts) > 3
-            else None
-        )
-        shared = module_parts[:2] == ["fitness", "contracts"]
-        offenders = set()
-        for module, row in references:
-            parts = module.split(".")
-            if parts[:2] != ["fitness", "features"]:
-                continue
-            if len(parts) > 2 and parts[2] == own_feature:
-                continue
-            if not shared and len(parts) > 3 and parts[3] == "contract":
-                continue
-            offenders.add((module, row))
+        own_feature, shared = _feature_access_context(relative)
+        offenders = {
+            (module, row)
+            for module, row in references
+            if _violates_feature_boundary(module, own_feature, shared)
+        }
         for module, row in sorted(offenders):
             results.append(
                 report(
@@ -95,6 +82,25 @@ def contract_findings(
                 )
             )
     return results
+
+
+def _feature_access_context(relative: Path) -> tuple[str | None, bool]:
+    """Identify the caller's own feature and whether it defines shared contracts."""
+    parts = list(relative.with_suffix("").parts)
+    if parts[0] == "src":
+        parts.pop(0)
+    own_feature = parts[2] if parts[:2] == ["fitness", "features"] and len(parts) > 3 else None
+    return own_feature, parts[:2] == ["fitness", "contracts"]
+
+
+def _violates_feature_boundary(module: str, own_feature: str | None, shared: bool) -> bool:
+    """Allow local implementation access and external access through contracts."""
+    parts = module.split(".")
+    if parts[:2] != ["fitness", "features"]:
+        return False
+    if len(parts) > 2 and parts[2] == own_feature:
+        return False
+    return shared or len(parts) <= 3 or parts[3] != "contract"
 
 
 def token_findings(root: Path, budget: int, encoding_name: str) -> list[dict[str, str]]:

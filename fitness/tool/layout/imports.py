@@ -66,6 +66,19 @@ def scan_imports(root: Path, source_only: bool = False) -> dict[Path, list[tuple
 
 
 def analyze_python_imports(root: Path, paths: list[Path]) -> ScanResult:
+    process = _run_import_analysis(root, paths)
+    if process.returncode:
+        raise ValueError(f"Semgrep exited {process.returncode}: {process.stderr or process.stdout}")
+    scan = ScanResult.model_validate_json(process.stdout)
+    if scan.errors:
+        raise ValueError(f"Semgrep analysis errors: {scan.errors}")
+    if set(map(Path, scan.paths.scanned)) != set(paths):
+        raise ValueError("Semgrep did not completely analyze the requested Python files")
+    return scan
+
+
+def _run_import_analysis(root: Path, paths: list[Path]) -> subprocess.CompletedProcess[str]:
+    """Run the native Semgrep engine once with an explicit target manifest."""
     binary = distribution("semgrep").locate_file("semgrep/bin/semgrep-core")
     targets = [
         "Targets",
@@ -84,7 +97,7 @@ def analyze_python_imports(root: Path, paths: list[Path]) -> ScanResult:
     with NamedTemporaryFile(mode="w", encoding="utf-8") as target_file:
         json.dump(targets, target_file)
         target_file.flush()
-        process = subprocess.run(
+        return subprocess.run(
             [
                 str(binary),
                 "-rules",
@@ -101,14 +114,6 @@ def analyze_python_imports(root: Path, paths: list[Path]) -> ScanResult:
             check=False,
             timeout=45,
         )
-    if process.returncode:
-        raise ValueError(f"Semgrep exited {process.returncode}: {process.stderr or process.stdout}")
-    scan = ScanResult.model_validate_json(process.stdout)
-    if scan.errors:
-        raise ValueError(f"Semgrep analysis errors: {scan.errors}")
-    if set(map(Path, scan.paths.scanned)) != set(paths):
-        raise ValueError("Semgrep did not completely analyze the requested Python files")
-    return scan
 
 
 def is_redundant_feature_access(

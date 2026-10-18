@@ -180,10 +180,8 @@ EXTERNAL_CALLERS = [
 ]
 
 
-@pytest.fixture(scope="module")
-def contract_violations(tmp_path_factory: pytest.TempPathFactory) -> list[dict[str, str]]:
-    """One real scan covers independent import examples in separate files."""
-    root = tmp_path_factory.mktemp("contract-access")
+def write_contract_examples(root: Path) -> None:
+    """Populate a repository with allowed and forbidden import examples."""
     examples = {
         f"src/fitness/features/client/{group}_{index}.py": statement
         for group, statements in (("forbidden", FORBIDDEN_IMPORTS), ("allowed", ALLOWED_IMPORTS))
@@ -197,6 +195,13 @@ def contract_violations(tmp_path_factory: pytest.TempPathFactory) -> list[dict[s
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(statement, encoding="utf-8")
     (root / "pyproject.toml").write_text('[project]\ndependencies = ["unused"]\n')
+
+
+@pytest.fixture(scope="module")
+def contract_violations(tmp_path_factory: pytest.TempPathFactory) -> list[dict[str, str]]:
+    """One real scan covers independent import examples in separate files."""
+    root = tmp_path_factory.mktemp("contract-access")
+    write_contract_examples(root)
     result = subprocess.run(
         [sys.executable, str(Path(__file__).with_name("adapter.py")), str(root)],
         input=json.dumps(

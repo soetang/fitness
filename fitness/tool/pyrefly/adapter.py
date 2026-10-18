@@ -4,31 +4,20 @@ import json
 import subprocess
 import sys
 
+from pydantic import JsonValue
 
-def main() -> None:
-    request = json.load(sys.stdin)
-    selections = request["selections"]
-    if request["config"] or any(item["config"] for item in selections):
-        raise ValueError("Pyrefly config mapping is not supported; use pyproject.toml")
-    rules = sorted({rule for item in selections for rule in item["rules"] or []})
+
+def _selection_flags(selections: list[list[str] | None]) -> list[str]:
+    """Restrict diagnostics only when every function selects explicit rules."""
+    rules = sorted({rule for selection in selections for rule in selection or []})
     flags = [f"--error={rule}" for rule in rules]
-    if rules and all(item["rules"] is not None for item in selections):
+    if rules and None not in selections:
         flags.extend(f"--only={rule}" for rule in rules)
-    result = subprocess.run(
-        [
-            "pyrefly",
-            "check",
-            "--config",
-            "pyproject.toml",
-            "--output-format",
-            "json",
-            *flags,
-            *sys.argv[1:],
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    return flags
+
+
+def _normalize_findings(result: subprocess.CompletedProcess[str]) -> list[dict[str, JsonValue]]:
+    """Translate native diagnostics without treating process errors as violations."""
     if result.returncode not in (0, 1):
         sys.stderr.write(result.stderr)
         raise SystemExit(result.returncode)
@@ -45,7 +34,31 @@ def main() -> None:
     if result.returncode and not findings:
         sys.stderr.write(result.stderr or "Pyrefly failed without diagnostics\n")
         raise SystemExit(2)
-    print(json.dumps(findings))
+    return findings
+
+
+def main() -> None:
+    request = json.load(sys.stdin)
+    selections = request["selections"]
+    if request["config"] or any(item["config"] for item in selections):
+        raise ValueError("Pyrefly config mapping is not supported; use pyproject.toml")
+    flags = _selection_flags([item["rules"] for item in selections])
+    result = subprocess.run(
+        [
+            "pyrefly",
+            "check",
+            "--config",
+            "pyproject.toml",
+            "--output-format",
+            "json",
+            *flags,
+            *sys.argv[1:],
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    print(json.dumps(_normalize_findings(result)))
 
 
 if __name__ == "__main__":

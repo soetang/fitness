@@ -1,5 +1,15 @@
 description: Python code quality, typing, and source/test maintainability.
 functions:
+  - title: Keep functions within the statement limit
+    type: maintainability
+    tool: ruff
+    rules: [PLR0915]
+    config:
+      pylint:
+        max-statements: 10
+    guidance: >-
+      Extract cohesive, domain-named operations. Keep independent policies in
+      separate functions; share common mechanics where that improves readability.
   - title: Document public source elements with Google-style docstrings
     type: maintainability
     tool: ruff
