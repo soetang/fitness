@@ -1,0 +1,42 @@
+# These patterns collect import facts, not Fitness policy decisions.
+rules:
+  - id: import
+    languages: [python]
+    severity: INFO
+    message: $MODULE
+    patterns:
+      - pattern: import $MODULE
+      - pattern-not: from $FROM import $SYMBOL
+  - id: from-import
+    languages: [python]
+    severity: INFO
+    message: $MODULE|$SYMBOL
+    pattern: from $MODULE import $SYMBOL
+  - id: dynamic-import
+    languages: [python]
+    severity: INFO
+    message: $MODULE
+    patterns:
+      - pattern-either:
+          - pattern: importlib.import_module("$MODULE", ...)
+          - pattern: __import__("$MODULE", ...)
+      - metavariable-regex:
+          metavariable: $MODULE
+          regex: ^[^.]
+  - id: relative-dynamic-import
+    languages: [python]
+    severity: INFO
+    message: $PACKAGE|$MODULE
+    pattern-either:
+      - pattern: importlib.import_module("$MODULE", "$PACKAGE")
+      - pattern: importlib.import_module("$MODULE", package="$PACKAGE")
+  - id: feature-access
+    languages: [python]
+    severity: INFO
+    message: fitness.features.$FEATURE.$MODULE
+    pattern: fitness.features.$FEATURE.$MODULE
+  - id: feature-package-access
+    languages: [python]
+    severity: INFO
+    message: fitness.features.$FEATURE
+    pattern: fitness.features.$FEATURE

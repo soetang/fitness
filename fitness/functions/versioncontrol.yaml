@@ -1,4 +1,9 @@
 functions:
+  - title: Change at most one feature per commit
+    type: versioncontrol
+    tool: commits
+    rules: [one-feature-per-commit]
+    guidance: Stage edits for one feature at a time. Shared files may accompany that feature, subject to the other commit boundaries.
   - title: Separate definition changes from implementation changes
     type: versioncontrol
     tool: commits

@@ -1,4 +1,30 @@
 functions:
+  - title: Keep each feature within one combined token budget
+    type: architecture
+    tool: layout
+    rules: [feature-token-budget]
+    config:
+      budget: 15000
+      encoding: cl100k_base
+      associated_files:
+        lint: [tests/test_fitness.py, tests/conftest.py, "tests/fixtures/**/*"]
+        check: [tests/test_fitness.py, tests/conftest.py, "tests/fixtures/**/*"]
+    guidance: Consider breaking into multiple cohesive features.
+  - title: Access features only through their public contracts
+    type: architecture
+    tool: layout
+    rules: [contract-only-feature-access]
+    guidance: Import the feature contract. Shared domain contracts must not depend on features.
+  - title: Keep dependencies without source usage out of runtime requirements
+    type: architecture
+    tool: layout
+    rules: [dependency-placement]
+    config:
+      module_mapping:
+        typer: [typer]
+        pydantic: [pydantic]
+        pyyaml: [yaml]
+    guidance: Move dependencies unused by src/ to the dev group; retain build-only requirements in build-system.requires.
   - title: Run Ruff lint checks through Fitness
     type: architecture
     tool: layout

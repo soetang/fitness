@@ -10,5 +10,6 @@ tools:
     send_input: true
   layout:
     command: [uv, run, --no-sync, python, fitness/tool/layout/adapter.py]
+    send_input: true
   commits:
     command: [uv, run, --no-sync, python, fitness/tool/commits/adapter.py]

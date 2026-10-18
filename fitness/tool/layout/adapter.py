@@ -2,10 +2,92 @@
 
 import json
 import re
+import sys
 import tomllib
 from pathlib import Path
 
 import yaml
+from architecture import contract_findings, dependency_findings, token_findings
+from imports import scan_imports
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
+
+
+class Settings(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+
+class TokenSettings(Settings):
+    budget: int = Field(gt=0)
+    encoding: str
+    associated_files: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class DependencySettings(Settings):
+    module_mapping: dict[str, list[str]]
+
+
+class Selection(Settings):
+    rules: list[str] | None = None
+    config: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class Request(Settings):
+    config: dict[str, JsonValue] = Field(default_factory=dict, max_length=0)
+    selections: list[Selection] = Field(default_factory=list)
+
+
+def architecture_findings(root: Path, request: Request) -> list[dict[str, str]]:
+    results: list[dict[str, str]] = []
+    configurations: dict[str, dict[str, JsonValue]] = {}
+    for selection in request.selections:
+        if selection.rules is None:
+            raise ValueError("Layout selections require explicit rule IDs")
+        for rule in selection.rules:
+            if rule in configurations and configurations[rule] != selection.config:
+                raise ValueError(f"Conflicting configuration for {rule}")
+            configurations[rule] = selection.config
+    imports = (
+        scan_imports(root, source_only="contract-only-feature-access" not in configurations)
+        if configurations.keys() & {"contract-only-feature-access", "dependency-placement"}
+        else {}
+    )
+    for rule, config in configurations.items():
+        if rule == "feature-token-budget":
+            settings = TokenSettings.model_validate(config)
+            results.extend(
+                token_findings(root, settings.budget, settings.encoding, settings.associated_files)
+            )
+        elif rule == "contract-only-feature-access":
+            Settings.model_validate(config)
+            results.extend(contract_findings(root, imports))
+        elif rule == "dependency-placement":
+            settings = DependencySettings.model_validate(config)
+            project_path = root / "pyproject.toml"
+            project = tomllib.loads(project_path.read_text()) if project_path.exists() else {}
+            metadata = project.get("project", {})
+            dependencies = list(metadata.get("dependencies", []))
+            for group in metadata.get("optional-dependencies", {}).values():
+                dependencies.extend(group)
+            results.extend(
+                dependency_findings(
+                    root,
+                    imports,
+                    dependencies,
+                    settings.module_mapping,
+                    project.get("build-system", {}).get("requires", []),
+                )
+            )
+        elif rule in {
+            "adapter-test-location",
+            "adapter-folder",
+            "architecture-function-type",
+            "ruff-config-location",
+            "fitness-owns-ruff-check",
+        }:
+            Settings.model_validate(config)
+        else:
+            raise ValueError(f"Unsupported layout rule: {rule}")
+    return results
 
 
 def findings(root: Path) -> list[dict[str, str]]:
@@ -84,4 +166,6 @@ def findings(root: Path) -> list[dict[str, str]]:
 
 
 if __name__ == "__main__":
-    print(json.dumps(findings(Path.cwd())))
+    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.cwd()
+    request = Request.model_validate_json(sys.stdin.read() or "{}")
+    print(json.dumps(findings(root) + architecture_findings(root, request)))

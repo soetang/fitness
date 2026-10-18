@@ -17,17 +17,21 @@ packages = ["src/fitness"]
 
 [dependency-groups]
 dev = [
+    "packaging>=25",
     "pyrefly>=1.4.0",
     "pytest>=8",
     "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8",
     "ruff>=0.14",
+    "semgrep>=1.181",
+    "tiktoken>=0.12",
     "tomli-w>=1.2.0",
     "types-pyyaml>=6.0.12.20260906",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "fitness/tool"]
-addopts = "-qq --no-header --tb=short --import-mode=importlib --cov --cov-report="
+addopts = "-qq --no-header --tb=short --import-mode=importlib --cov --cov-report= -n auto --maxprocesses=4 --dist=loadgroup"
 
 [tool.coverage.run]
 source = ["src/fitness"]
@@ -38,6 +42,7 @@ fail_under = 100
 show_missing = true
 
 [tool.pyrefly]
+search-path = ["fitness/tool/layout"]
 project-includes = ["src", "tests", "fitness/tool"]
 python-version = "3.11"
 
