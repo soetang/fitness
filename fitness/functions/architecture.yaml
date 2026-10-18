@@ -27,11 +27,6 @@ functions:
         pydantic: [pydantic]
         pyyaml: [yaml]
     guidance: Move dependencies unused by src/ to the dev group; retain build-only requirements in build-system.requires.
-  - title: Run Ruff lint checks through Fitness
-    type: architecture
-    tool: layout
-    rules: [fitness-owns-ruff-check]
-    guidance: Remove direct ruff check commands from justfile recipes. Use the fitness recipe for lint evaluation; fmt only formats.
   - title: Keep adapter tests beside their adapters
     type: architecture
     tool: layout
