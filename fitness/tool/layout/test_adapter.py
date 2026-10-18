@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def findings(root: Path) -> list[dict[str, str]]:
     result = subprocess.run(
@@ -33,6 +35,40 @@ def test_adapter_tests_in_tool_are_allowed(tmp_path: Path):
     tool.mkdir(parents=True)
     (tool / "adapter.py").touch()
     (tool / "test_adapter.py").touch()
+    assert findings(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    "configuration",
+    ["[tool.ruff]\n", "[tool.ruff]\nline-length = 100\n", '[tool.ruff.lint]\nselect = ["F"]\n'],
+)
+def test_rejects_ruff_configuration_in_pyproject(tmp_path: Path, configuration: str):
+    (tmp_path / "pyproject.toml").write_text(configuration)
+    result = findings(tmp_path)
+    assert len(result) == 1
+    assert result[0]["rule_id"] == "ruff-config-location"
+    assert result[0]["filename"] == "pyproject.toml"
+
+
+def test_allows_other_native_configuration(tmp_path: Path):
+    (tmp_path / "pyproject.toml").write_text('[tool.pyrefly]\npython-version = "3.11"\n')
+    assert findings(tmp_path) == []
+
+
+def test_rejects_direct_ruff_checks_in_justfile(tmp_path: Path):
+    (tmp_path / "justfile").write_text("lint:\n    uv run ruff check .\n    ruff check --fix .\n")
+    result = findings(tmp_path)
+    assert len(result) == 2
+    assert all(item["rule_id"] == "fitness-owns-ruff-check" for item in result)
+    assert all(item["filename"] == "justfile" for item in result)
+
+
+def test_allows_fitness_and_formatting_recipes(tmp_path: Path):
+    (tmp_path / "justfile").write_text(
+        "# ruff check belongs in the adapter\n"
+        "fmt:\n    uv run ruff format .\n"
+        "fitness:\n    # Do not run ruff check here\n    .fitness-runner/bin/fitness check\n"
+    )
     assert findings(tmp_path) == []
 
 

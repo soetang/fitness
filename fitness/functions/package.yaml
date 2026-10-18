@@ -3,6 +3,9 @@ functions:
     type: lint
     tool: ruff
     rules: [E, F, I, UP, SIM]
+    config:
+      pycodestyle:
+        max-line-length: 100
   - title: Keep Python code type-correct
     type: typing
     tool: pyrefly

@@ -1,6 +1,8 @@
 """Report misplaced adapter test modules using the project's naming convention."""
 
 import json
+import re
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -51,6 +53,32 @@ def findings(root: Path) -> list[dict[str, str]]:
             }
             for function in document.get("functions", [])
             if function.get("type") != "architecture"
+        )
+    project = root / "pyproject.toml"
+    if project.is_file() and "ruff" in tomllib.loads(project.read_text()).get("tool", {}):
+        results.append(
+            {
+                "tool": "layout",
+                "rule_id": "ruff-config-location",
+                "tool_message": (
+                    "Move Ruff configuration into fitness/tool.yaml or fitness/functions/."
+                ),
+                "filename": "pyproject.toml",
+            }
+        )
+    justfile = root / "justfile"
+    if justfile.is_file():
+        results.extend(
+            {
+                "tool": "layout",
+                "rule_id": "fitness-owns-ruff-check",
+                "tool_message": f"Line {number}: run Ruff lint checks through Fitness.",
+                "filename": "justfile",
+            }
+            for number, line in enumerate(justfile.read_text().splitlines(), start=1)
+            if line[:1].isspace()
+            and not line.lstrip().startswith("#")
+            and re.search(r"\bruff\s+check\b", line)
         )
     return results
 
