@@ -75,7 +75,24 @@ def register_document_tools(tools: dict[str, Tool], document: Document) -> None:
         tools[name] = tool
 
 
-def load_fitness_functions(path: Path) -> tuple[dict[str, Tool], list[FitnessFunction]]:
+def register_document_definitions(
+    tools: dict[str, Tool], contexts: list[str], document: Document
+) -> None:
+    """Merge named tool and context declarations, rejecting duplicate names.
+
+    Args:
+        tools: Tool registry updated in place.
+        contexts: Context registry updated in place.
+        document: Validated document supplying context names.
+    """
+    register_document_tools(tools, document)
+    for name in document.contexts:
+        if name in contexts:
+            raise FitnessError(f"duplicate context {name!r}")
+        contexts.append(name)
+
+
+def load_fitness_functions(path: Path) -> tuple[dict[str, Tool], list[FitnessFunction], list[str]]:
     """Collect tools and source-located functions from definition documents.
 
     Args:
@@ -85,15 +102,16 @@ def load_fitness_functions(path: Path) -> tuple[dict[str, Tool], list[FitnessFun
         FitnessError: Loading fails, with the failing document identified.
     """
     tools: dict[str, Tool] = {}
+    contexts: list[str] = []
     fitness_functions = []
     for file in find_fitness_documents(path):
         try:
             document, lines = read_fitness_document(file)
-            register_document_tools(tools, document)
+            register_document_definitions(tools, contexts, document)
             fitness_functions.extend(
                 FitnessFunction(function=function, source=f"{file}:{line}")
                 for function, line in zip(document.functions, lines, strict=True)
             )
         except (OSError, ValueError, yaml.YAMLError, FitnessError) as error:
             raise FitnessError(f"{file}: {error}") from error
-    return tools, fitness_functions
+    return tools, fitness_functions, contexts

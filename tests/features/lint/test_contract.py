@@ -11,6 +11,9 @@ from fitness.features.lint.contract import lint_fitness_functions
     ("function", "diagnostic"),
     [
         ("{title: Test, type: custom, typo: true}", "extra_forbidden"),
+        ("{title: Test, type: custom, include_in_context: missing}", "undeclared context"),
+        ("{title: Test, type: custom, include_in_context: ['']}", "string_too_short"),
+        ("{title: Test, type: custom, include_in_context: 42}", "list_type"),
         ("{title: Test, type: custom, limit: -1}", "greater_than_equal"),
         ("{title: Test, type: custom, limit: true}", "int_type"),
         ("{title: Test, type: custom, tool: missing, rules: [X]}", "unknown tool 'missing'"),

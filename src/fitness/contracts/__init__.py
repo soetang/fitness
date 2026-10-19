@@ -2,7 +2,15 @@
 
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, StringConstraints, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    StringConstraints,
+    field_validator,
+    model_validator,
+)
 
 Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 Count = Annotated[int, Field(strict=True, ge=0)]
@@ -31,8 +39,19 @@ class Function(Model):
     tool: Text | None = None
     rules: list[Text] | None = Field(default=None, min_length=1)
     guidance: Text | None = None
+    include_in_context: list[Text] = Field(default_factory=list)
     limit: Count = 0
     config: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @field_validator("include_in_context", mode="before")
+    @classmethod
+    def normalize_contexts(cls, value: object) -> object:
+        """Accept a single context name as shorthand for a list.
+
+        Args:
+            value: Raw context membership from a definition.
+        """
+        return [value] if isinstance(value, str) else value
 
     @model_validator(mode="after")
     def references(self):
@@ -48,6 +67,7 @@ class Document(Model):
     """Represent a described YAML document containing tools and functions."""
 
     description: Text
+    contexts: list[Text] = Field(default_factory=list)
     tools: dict[Text, Tool] = Field(default_factory=dict)
     functions: list[Function] = Field(default_factory=list)
 
@@ -86,5 +106,6 @@ class FitnessFunctions(Model):
     """Collect validated tools, source-located functions, and lint warnings."""
 
     tools: dict[str, Tool]
+    contexts: list[str] = Field(default_factory=list)
     fitness_functions: list[FitnessFunction]
     warnings: list[str]
