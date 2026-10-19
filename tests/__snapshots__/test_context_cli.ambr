@@ -1,0 +1,18 @@
+# serializer version: 1
+# name: test_context_markdown_snapshot
+  '''
+  ## Keep public interfaces understandable
+  
+  Explain the intent of each public operation.
+  
+  - Use domain language.
+  - Include an example where it helps.
+  
+  ## Prefer focused changes
+  
+  ## Keep diagnostics actionable
+  
+  Tell the reader what failed and how to fix it.
+  
+  '''
+# ---

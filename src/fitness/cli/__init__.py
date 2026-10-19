@@ -2,7 +2,7 @@
 
 import typer
 
-from fitness.cli.commands import check, lint
+from fitness.cli.commands import check, context, lint
 from fitness.features.check.contract import ExecuteAdapter, execute_adapter_process
 
 
@@ -14,6 +14,7 @@ def create_app(execute_adapter: ExecuteAdapter = execute_adapter_process) -> typ
     """
     app = typer.Typer(no_args_is_help=True, pretty_exceptions_enable=False)
     lint.register(app)
+    context.register(app)
     check.register(app, execute_adapter)
     return app
 

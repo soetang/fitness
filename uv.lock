@@ -590,6 +590,7 @@ dev = [
     { name = "pytest-xdist" },
     { name = "ruff" },
     { name = "semgrep" },
+    { name = "syrupy" },
     { name = "tiktoken" },
     { name = "tomli-w" },
     { name = "types-pyyaml" },
@@ -611,6 +612,7 @@ dev = [
     { name = "pytest-xdist", specifier = ">=3.8" },
     { name = "ruff", specifier = ">=0.14" },
     { name = "semgrep", specifier = "==1.181.0" },
+    { name = "syrupy", specifier = ">=6.1.1" },
     { name = "tiktoken", specifier = ">=0.12" },
     { name = "tomli-w", specifier = ">=1.2.0" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20260906" },
@@ -1774,6 +1776,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ad/eb/4e197bf26b023abafc5e9043ec8710d7de0fcb032d0969045236d72aa0b1/starlette-1.9.0.tar.gz", hash = "sha256:3d931de246ed870e35ce605974440816ef895e592f255d1396cfdf191d4c4318", size = 2732466 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f3/93/181df62699d9b5aca1d87e5cfda131dac87e3cdaebf668662f7206ca3470/starlette-1.9.0-py3-none-any.whl", hash = "sha256:fd3f159936e882d06c1108f84688f7cda2cf85fc6a592a50edbd175e882c2ddc", size = 80335 },
+]
+
+[[package]]
+name = "syrupy"
+version = "6.1.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/74/2c/8ffc1414d1951895d0d5b7dc83c0b079ebc48c3bf27ffbb0064646367500/syrupy-6.1.1.tar.gz", hash = "sha256:7e584a8df4ede6dd3c1c44a77f9edc46186b6767a73dea6f0083044946839a59", size = 109705 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2c/b5/bf2a8a335a6a813869dd482cedbcde252f582b5afbfe50eb78ec09962800/syrupy-6.1.1-py3-none-any.whl", hash = "sha256:6ac9ac6a42d70ae44156f5f157a9563b9bb8cc96dcf9364327f330463bff889a", size = 63436 },
 ]
 
 [[package]]

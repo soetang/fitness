@@ -5,6 +5,7 @@ for your codebase, with configurable violation limits.
 
 - `fitness lint` validates definitions offline.
 - `fitness check` runs tools and reports whether expectations pass.
+- `fitness context <name>` supplies selected expectations as Markdown or `--json`.
 
 ## Quick start
 
@@ -34,7 +35,8 @@ just check
 
 Potential features, pending further design discussion:
 
-- [ ] Select fitness functions for agent context by importance or relevant files.
+- [ ] Add file/event-triggered delivery of named agent contexts.
+- [ ] Define expectations for agent tool use through hooks.
 - [ ] Package a skill for using Fitness and adding functions and adapters.
 - [ ] Support shared and package-specific functions across multiple codebases.
 - [ ] Opt into reusable fitness functions from remote Git collections.

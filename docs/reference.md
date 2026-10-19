@@ -33,6 +33,38 @@ Functions require `title` and `type`. Omit `tool` for manual expectations; omit
 guidance supplements tool messages. See the [glossary](glossary.md) for terminology.
 Lint validates definitions offline, including references and unknown fields.
 
+## Agent context
+
+Register user-defined context names in any loaded definition document:
+
+```yaml
+description: Context names for agent integrations.
+contexts: [startup, python]
+```
+
+On a function, use `include_in_context: startup` or
+`include_in_context: [startup, python]`. Omission or `[]` means no inclusion.
+Names are case-sensitive. Lint rejects undeclared references and duplicate context
+declarations, including duplicates across files. All YAML files under `--rules`
+are loaded recursively; `config.yaml` is a convention, not a special filename.
+
+```sh
+fitness context startup
+fitness context python --json
+fitness context startup --rules path/to/definitions
+```
+
+Markdown output contains each selected function's title and optional guidance in
+definition-loading order. JSON contains `context` and `fitness_functions`; each
+entry contains the complete normalized `function` and its `source` location.
+A registered empty context succeeds with no Markdown output or an empty
+`fitness_functions` array. Unknown contexts and invalid definitions exit 2.
+Selection never executes adapters. Context membership does not affect checking.
+
+Names have no built-in lifecycle meaning. The caller decides when to request and
+inject context, including any hooks and deduplication. Shell expansion in agent
+instruction files depends on the consuming harness.
+
 ## Provisional integration contract
 
 Each selected tool runs once, without a shell, in the caller's working directory.
@@ -80,6 +112,11 @@ source locations and overlap warnings. The check contract exposes
 `check_fitness_functions(fitness_functions, execute_adapter=..., type_=...)`,
 returning `CheckResult` objects. Both APIs raise `FitnessError` for errors;
 neither prints output nor exits the process.
+
+`fitness.features.context.contract.select_context(fitness_functions, name)` accepts
+validated definitions and returns a `ContextResult` containing the context name
+and selected source-located functions. Use `.markdown()` for concise instructions
+or `.model_dump_json()` for full JSON. Unknown contexts raise `FitnessError`.
 
 `execute_adapter` accepts a command and optional JSON stdin and returns stdout;
 its default process transport is also available through the check contract.

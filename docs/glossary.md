@@ -12,6 +12,8 @@ Terminology agreed in the fitness-format design session:
   `TID251`. A fitness function can reference multiple IDs through `rules`.
 - **Guidance**: optional plain-text advice that supplements tool messages,
   explaining the expectation and helping with prevention or correction.
+- **Context**: a registered, user-defined name grouping fitness functions for
+  delivery to an agent. Inclusion is explicit and independent of type or checking.
 - **Finding**: an individual reported offender, with required `tool`, `rule_id`,
   and `tool_message`, plus optional `filename` and `location`. Tools return a flat
   JSON array; the core maps findings to functions by tool and rule ID.
