@@ -50,7 +50,7 @@ def test_allowed_commit_groups(repository: Path, adapter_module: ModuleType, pat
 
 @pytest.mark.parametrize(
     "definition",
-    ["fitness/functions/example.yaml", "fitness/tool/example/adapter.py", "fitness/tool.yaml"],
+    ["fitness/functions/example.yaml", "fitness/tool/example/adapter.py", "fitness/config.yaml"],
 )
 @pytest.mark.parametrize("implementation", ["src/example.py", "tests/test_example.py"])
 def test_rejects_every_mixed_pair(

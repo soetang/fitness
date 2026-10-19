@@ -1,5 +1,7 @@
 # Fitness
 
+!fitness context startup
+
 - Only edit this file when the user explicitly requests it. Keep it concise.
 - Keep the prototype small. Use uv, dependency injection, and no mocks.
 - Rules are defined in `fitness/`. Never repeat them in documentation or instructions; link to their definitions.

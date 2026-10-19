@@ -6,7 +6,7 @@ the core maps reported `tool` + `rule_id` values exactly.
 
 ## Registration
 
-Register its command in `fitness/tool.yaml`:
+Register its command in `fitness/config.yaml`:
 
 ```yaml
 description: Commands for evaluating this project's fitness functions.

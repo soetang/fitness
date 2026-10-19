@@ -179,7 +179,7 @@ def ruff_config_findings(root: Path) -> list[dict[str, str]]:
                 "tool": "layout",
                 "rule_id": "ruff-config-location",
                 "tool_message": (
-                    "Move Ruff configuration into fitness/tool.yaml or fitness/functions/."
+                    "Move Ruff configuration into fitness/config.yaml or fitness/functions/."
                 ),
                 "filename": "pyproject.toml",
             }

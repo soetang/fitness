@@ -1,6 +1,7 @@
 description: Source structure, feature contracts and size, test organization, and dependency placement.
 functions:
   - title: Keep feature tests with their corresponding feature
+    include_in_context: startup
     type: architecture
     tool: layout
     rules: [feature-test-location]
@@ -14,6 +15,7 @@ functions:
       encoding: cl100k_base
     guidance: Consider breaking into multiple cohesive features.
   - title: Access features only through their public contracts
+    include_in_context: startup
     type: architecture
     tool: layout
     rules: [contract-only-feature-access]
@@ -29,6 +31,7 @@ functions:
         pyyaml: [yaml]
     guidance: Move dependencies unused by src/ to the dev group; retain build-only requirements in build-system.requires.
   - title: Use Pydantic models instead of dataclasses
+    include_in_context: startup
     type: architecture
     tool: ruff
     rules: [TID251]

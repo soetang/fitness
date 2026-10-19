@@ -1,4 +1,5 @@
-description: Commands and invocation-wide settings for the repository's fitness checks.
+description: Shared context names, commands, and invocation-wide settings for Fitness.
+contexts: [startup]
 tools:
   ruff:
     command: [uv, run, --no-sync, python, fitness/tool/ruff/adapter.py]

@@ -1,10 +1,14 @@
 # Contributing to Fitness
 
 Project policies live in [fitness/functions](../fitness/functions/), with
-integrations in [fitness/tool.yaml](../fitness/tool.yaml). Read those definitions
+integrations in [fitness/config.yaml](../fitness/config.yaml). Read those definitions
 for the current rules and guidance.
 
 ## Development workflow
+
+CLI output snapshots use Syrupy and live in `tests/__snapshots__/`.
+Review output changes there. To intentionally update the context snapshot, run
+`uv run pytest tests/test_context_cli.py -n 0 --no-cov --snapshot-update`.
 
 Run `just setup`, then `just update-runner` to initialize the non-editable CLI at
 `.fitness-runner/bin/fitness`. Normal checks reuse this snapshot; only

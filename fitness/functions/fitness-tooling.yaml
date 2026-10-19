@@ -19,4 +19,4 @@ functions:
     type: meta
     tool: layout
     rules: [ruff-config-location]
-    guidance: Put invocation and formatting controls in fitness/tool.yaml and rule selections and settings in fitness/functions/. Do not add tool.ruff configuration to pyproject.toml.
+    guidance: Put invocation and formatting controls in fitness/config.yaml and rule selections and settings in fitness/functions/. Do not add tool.ruff configuration to pyproject.toml.

@@ -7,7 +7,7 @@ from pathlib import Path
 def test_renders_shared_runtime_controls(tmp_path: Path):
     folder = tmp_path / "fitness"
     folder.mkdir()
-    (folder / "tool.yaml").write_text("""
+    (folder / "config.yaml").write_text("""
 description: Shared tool settings for the formatter fixture.
 tools:
   ruff:
